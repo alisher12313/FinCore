@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  postgres-account:
+    container_name: postgres-account
+    image: postgres:16
+    environment:
+      POSTGRES_DB: account_db
+      POSTGRES_USER: account
+      POSTGRES_PASSWORD: password
+    volumes:
+      - postgres-account-data:/var/lib/postgresql/data
+    ports:
+      - "5450:5432"
+    restart: unless-stopped
+
+volumes:
+  postgres-account-data:
