@@ -14,5 +14,16 @@ services:
       - "5450:5432"
     restart: unless-stopped
 
+  postgres-account-test:
+    container_name: postgres-account-test
+    image: postgres:16
+    environment:
+      POSTGRES_DB: account_test_db
+      POSTGRES_USER: account
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5451:5432"
+    restart: unless-stopped
+
 volumes:
   postgres-account-data:

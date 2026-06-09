@@ -1,0 +1,9 @@
+databaseChangeLog:
+  - changeSet:
+      id: change_column
+      author: Alisher
+      changes:
+        - addUniqueConstraint:
+            tableName: accounts
+            columnNames: user_id
+            constraintName: u_accounts_user_id
