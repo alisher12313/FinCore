@@ -1,14 +1,17 @@
 package com.pm.accountservice.service;
 
-import com.pm.accountservice.dto.AccountResponseDto;
-import com.pm.accountservice.dto.CreateAccountRequestDto;
+import com.pm.accountservice.client.CurrencyClientApi;
+import com.pm.accountservice.dto.*;
 import com.pm.accountservice.entity.Account;
 import com.pm.accountservice.entity.AccountStatus;
 import com.pm.accountservice.entity.CurrencyType;
+import com.pm.accountservice.exception.AccountFrozenException;
+import com.pm.accountservice.exception.AccountNotFoundWithUserIdException;
 import com.pm.accountservice.mapper.AccountMapper;
 import com.pm.accountservice.repository.AccountRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -21,6 +24,10 @@ public class AccountService {
 
     private final AccountRepository accountRepository;
     private final AccountMapper accountMapper;
+    private final CurrencyClientApi currencyClientApi;
+
+    @Value("${currency.api}")
+    private String apiKey;
 
     public Account createAccount(CreateAccountRequestDto accountRequest) {
         log.info("Creating account {}", accountRequest.toString());
@@ -37,6 +44,59 @@ public class AccountService {
                 .currency(currencyType)
                 .status(status)
                 .build();
+
+        return accountRepository.save(account);
+    }
+
+    //todo: Inject Jwt token later using @AuthenticationPrincipal
+    public Account getMyProfile(){
+        UUID dummyId = UUID.fromString("11111111-1111-1111-1111-111111111111");
+
+        return accountRepository.findByUserId(dummyId).orElseThrow(() -> new AccountNotFoundWithUserIdException(dummyId.toString()));
+    }
+
+    public BigDecimal getConvertedBalance(ViewOrChangeCurrencyDto dto) {
+        UUID dummyId = UUID.fromString("11111111-1111-1111-1111-111111111111");
+
+        BalanceViewProjection balance = accountRepository.findBalanceByUserId(dummyId).orElseThrow(() -> new AccountNotFoundWithUserIdException(dummyId.toString()));
+        String targetCurrency = dto.getCurrency().name();
+
+        CurrencyApiResponse currencyApiResponse = currencyClientApi.convert(
+            apiKey,
+            balance.getBalance(),
+            balance.getCurrency().name(),
+            targetCurrency
+        );
+
+        return currencyApiResponse.getData().get(targetCurrency).getValue();
+    }
+
+    public Account topUpBalance(TopUpRequestDto topUpRequestDto) {
+        UUID dummyId = UUID.fromString("11111111-1111-1111-1111-111111111111");
+
+        Account account = accountRepository.findByUserId(dummyId).orElseThrow(() -> new AccountNotFoundWithUserIdException(dummyId.toString()));
+        String currencyType = topUpRequestDto.getCurrencyType().name();
+        BigDecimal amount = topUpRequestDto.getAmount();
+
+        String accountCurrency = account.getCurrency().name();
+
+        if (account.getStatus() == AccountStatus.FROZEN) {
+            throw new AccountFrozenException(dummyId.toString());
+        }
+
+        if (accountCurrency.equals(currencyType)) {
+            account.setBalance(account.getBalance().add(amount));
+        } else {
+            CurrencyApiResponse currencyApiResponse = currencyClientApi.convert(
+                    apiKey,
+                    amount,
+                    currencyType,
+                    accountCurrency
+            );
+
+            BigDecimal targetToTopUp = currencyApiResponse.getData().get(accountCurrency).getValue();
+            account.setBalance(account.getBalance().add(targetToTopUp));
+        }
 
         return accountRepository.save(account);
     }
