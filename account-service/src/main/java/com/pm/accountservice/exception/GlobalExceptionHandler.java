@@ -1,5 +1,6 @@
 package com.pm.accountservice.exception;
 
+import org.apache.catalina.connector.Response;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -20,7 +21,7 @@ public class GlobalExceptionHandler {
         Map<String, String> errors = new HashMap<>();
 
         ex.getBindingResult().getAllErrors().forEach(error -> {
-           errors.put(error.getDefaultMessage(), error.getDefaultMessage());
+           errors.put(error.getObjectName(), error.getDefaultMessage());
         });
 
         return ResponseEntity.badRequest().body(
@@ -30,6 +31,24 @@ public class GlobalExceptionHandler {
                         "status code", HttpStatus.BAD_REQUEST.value(),
                         "message", "Validation Failed",
                         "errors", errors)
+        );
+    }
+
+    @ExceptionHandler(AccountNotFoundWithUserIdException.class)
+    public ResponseEntity<?> handleAccountNotFoundWithUserIdException(AccountNotFoundWithUserIdException ex) {
+       return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
+               Map.of(
+                       "error", ex.getMessage()
+               )
+       );
+    }
+
+    @ExceptionHandler(AccountFrozenException.class)
+    public ResponseEntity<?> handleAccountFrozenException(AccountNotFoundWithUserIdException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                Map.of(
+                        "error", ex.getMessage()
+                )
         );
     }
 
