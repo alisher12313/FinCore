@@ -8,6 +8,8 @@ import com.pm.accountservice.dto.TopUpRequestDto;
 import com.pm.accountservice.entity.Account;
 import com.pm.accountservice.entity.AccountStatus;
 import com.pm.accountservice.entity.CurrencyType;
+import com.pm.accountservice.exception.AccountFrozenException;
+import com.pm.accountservice.exception.AccountNotFoundWithUserIdException;
 import com.pm.accountservice.repository.AccountRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
