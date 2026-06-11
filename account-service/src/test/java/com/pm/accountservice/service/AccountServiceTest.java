@@ -2,6 +2,9 @@ package com.pm.accountservice.service;
 
 import com.pm.accountservice.client.CurrencyClientApi;
 import com.pm.accountservice.dto.CreateAccountRequestDto;
+import com.pm.accountservice.dto.CurrencyApiResponse;
+import com.pm.accountservice.dto.CurrencyData;
+import com.pm.accountservice.dto.TopUpRequestDto;
 import com.pm.accountservice.entity.Account;
 import com.pm.accountservice.entity.AccountStatus;
 import com.pm.accountservice.entity.CurrencyType;
