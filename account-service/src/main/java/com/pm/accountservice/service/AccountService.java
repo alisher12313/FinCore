@@ -87,7 +87,7 @@ public class AccountService {
         }
 
         if (accountCurrency.equals(currencyType)) {
-            account.setBalance(account.getBalance().add(amount));
+            account.setBalance(account.getBalance().add(amount).setScale(2, RoundingMode.HALF_UP));
         } else {
             CurrencyApiResponse currencyApiResponse = currencyClientApi.convert(
                     apiKey,
