@@ -27,6 +27,9 @@ class AccountServiceTest{
     @Mock
     private AccountRepository accountRepository;
 
+    @Mock
+    private CurrencyClientApi currencyClientApi;
+
     @InjectMocks
     private AccountService accountService;
 
