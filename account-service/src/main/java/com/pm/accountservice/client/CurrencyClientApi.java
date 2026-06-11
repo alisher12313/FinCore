@@ -8,7 +8,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 
 import java.math.BigDecimal;
 
-@FeignClient(url = "${currency.url}")
+@FeignClient(name = "currency-api", url = "${currency.url}")
 public interface CurrencyClientApi {
 
     @GetMapping("/convert")
