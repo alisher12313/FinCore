@@ -96,8 +96,9 @@ public class AccountService {
                     accountCurrency
             );
 
-            BigDecimal targetToTopUp = currencyApiResponse.getData().get(accountCurrency).getValue();
-            account.setBalance(account.getBalance().add(targetToTopUp));
+            BigDecimal rate = currencyApiResponse.getData().get(accountCurrency).getValue();
+            BigDecimal targetToTopUp = amount.multiply(rate).setScale(2, RoundingMode.HALF_UP);
+            account.setBalance(account.getBalance().add(targetToTopUp).setScale(2, RoundingMode.HALF_UP));
         }
 
         return accountRepository.save(account);
