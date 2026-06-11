@@ -62,5 +62,92 @@ class AccountServiceTest{
 
         Mockito.verify(accountRepository, times(1)).save(any(Account.class));
     }
+
+    @Test
+    void testGetMyProfile_WhenAccountExists_ThenReturnMyProfile(){
+        when(accountRepository.findByUserId(any(UUID.class))).thenReturn(Optional.ofNullable(account));
+
+        Account result = accountService.getMyProfile();
+
+        assertThat(result).isNotNull();
+        assertThat(result.getId()).isEqualTo(account.getId());
+        assertThat(result.getUserId()).isEqualTo(account.getUserId());
+
+        Mockito.verify(accountRepository, times(1)).findByUserId(any(UUID.class));
+    }
+
+    @Test
+    void testGetMyProfile_WhenAccountDoesNotExist_ThenThrowException(){
+        when(accountRepository.findByUserId(any(UUID.class)))
+                .thenReturn(Optional.empty())
+                .thenThrow();
+
+        assertThrows(AccountNotFoundWithUserIdException.class, () ->
+                accountService.getMyProfile());
+    }
+
+    @Test
+    void testTopUpBalance_WhenSameCurrency_ThenBalanceIncreases(){
+        account.setBalance(new BigDecimal("1000"));
+        account.setCurrency(CurrencyType.KZT);
+
+        when(accountRepository.findByUserId(any(UUID.class)))
+                .thenReturn(Optional.of(account));
+        when(accountRepository.save(any(Account.class)))
+                .thenReturn(account);
+
+
+        TopUpRequestDto request = new TopUpRequestDto();
+        request.setAmount(new BigDecimal("500"));
+        request.setCurrencyType(CurrencyType.KZT);
+
+        Account result = accountService.topUpBalance(request);
+
+        assertThat(result.getBalance()).isEqualByComparingTo(new BigDecimal("1500"));
+        Mockito.verify(accountRepository, times(1)).save(any(Account.class));
+    }
+
+    @Test
+    void testTopUpBalance_WhenDifferentCurrency_ThenConvertAndIncreaseBalance() {
+        account.setBalance(new BigDecimal("1000"));
+        account.setCurrency(CurrencyType.KZT);
+
+        // mock fake API response: 1 EUR = 450 KZT
+        CurrencyData kztData = new CurrencyData("KZT", new BigDecimal("450"));
+        CurrencyApiResponse apiResponse = new CurrencyApiResponse(Map.of("KZT", kztData));
+
+        when(accountRepository.findByUserId(any(UUID.class)))
+                .thenReturn(Optional.of(account));
+        when(currencyClientApi.convert(any(), any(), any(), any()))
+                .thenReturn(apiResponse);
+        when(accountRepository.save(any(Account.class)))
+                .thenReturn(account);
+
+        TopUpRequestDto request = new TopUpRequestDto();
+        request.setAmount(new BigDecimal("1"));
+        request.setCurrencyType(CurrencyType.EUR);
+
+        Account result = accountService.topUpBalance(request);
+
+        assertThat(result.getBalance()).isEqualByComparingTo(new BigDecimal("1450"));
+        Mockito.verify(currencyClientApi, times(1)).convert(any(), any(), any(), any());
+        Mockito.verify(accountRepository, times(1)).save(any(Account.class));
+    }
+
+    @Test
+    void testTopUpBalance_WhenAccountFrozen_ThenThrowException(){
+        account.setStatus(AccountStatus.FROZEN);
+
+        when(accountRepository.findByUserId(any(UUID.class))).thenReturn(Optional.of(account));
+
+        TopUpRequestDto request = new TopUpRequestDto();
+        request.setAmount(new BigDecimal("500"));
+        request.setCurrencyType(CurrencyType.USD);
+
+        assertThrows(AccountFrozenException.class, () ->
+                accountService.topUpBalance(request));
+
+        Mockito.verify(accountRepository, never()).save(any(Account.class));
+    }
 }
 
