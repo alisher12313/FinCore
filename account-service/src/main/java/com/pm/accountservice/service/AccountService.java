@@ -64,7 +64,6 @@ public class AccountService {
 
         CurrencyApiResponse currencyApiResponse = currencyClientApi.convert(
             apiKey,
-            balance.getBalance(),
             balance.getCurrency().name(),
             targetCurrency
         );
@@ -92,7 +91,6 @@ public class AccountService {
         } else {
             CurrencyApiResponse currencyApiResponse = currencyClientApi.convert(
                     apiKey,
-                    amount,
                     currencyType,
                     accountCurrency
             );

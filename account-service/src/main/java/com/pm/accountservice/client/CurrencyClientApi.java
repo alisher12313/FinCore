@@ -11,10 +11,9 @@ import java.math.BigDecimal;
 @FeignClient(name = "currency-api", url = "${currency.url}")
 public interface CurrencyClientApi {
 
-    @GetMapping("/convert")
+    @GetMapping("/latest")
     public CurrencyApiResponse convert(
             @RequestHeader("apiKey") String apiKey,
-            @RequestParam("value") BigDecimal value,
             @RequestParam("base_currency") String baseCurrency,
             @RequestParam("currencies") String targetCurrency
             );

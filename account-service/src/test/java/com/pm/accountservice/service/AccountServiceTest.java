@@ -129,7 +129,7 @@ class AccountServiceTest{
 
         when(accountRepository.findByUserId(any(UUID.class)))
                 .thenReturn(Optional.of(account));
-        when(currencyClientApi.convert(any(), any(), any(), any()))
+        when(currencyClientApi.convert(any(), any(), any()))
                 .thenReturn(apiResponse);
         when(accountRepository.save(any(Account.class)))
                 .thenReturn(account);
@@ -141,7 +141,7 @@ class AccountServiceTest{
         Account result = accountService.topUpBalance(request);
 
         assertThat(result.getBalance()).isEqualByComparingTo(new BigDecimal("1450"));
-        Mockito.verify(currencyClientApi, times(1)).convert(any(), any(), any(), any());
+        Mockito.verify(currencyClientApi, times(1)).convert(any(), any(), any());
         Mockito.verify(accountRepository, times(1)).save(any(Account.class));
     }
 

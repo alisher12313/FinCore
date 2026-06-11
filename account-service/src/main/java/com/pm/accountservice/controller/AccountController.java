@@ -2,6 +2,7 @@ package com.pm.accountservice.controller;
 
 import com.pm.accountservice.dto.AccountResponseDto;
 import com.pm.accountservice.dto.CreateAccountRequestDto;
+import com.pm.accountservice.dto.TopUpRequestDto;
 import com.pm.accountservice.dto.ViewOrChangeCurrencyDto;
 import com.pm.accountservice.entity.Account;
 import com.pm.accountservice.service.AccountService;
@@ -58,6 +59,19 @@ public class AccountController {
         return ResponseEntity.ok(Map.of(
                 "message", "Balance converted successfully",
                 "result", converted
+        ));
+    }
+
+    @PostMapping("/my/balance")
+    public ResponseEntity<?> topUpBalance(@Valid @RequestBody TopUpRequestDto dto) {
+        log.info("Top up balance");
+
+        Account account = accountService.topUpBalance(dto);
+        AccountResponseDto accountResponseDto = accountService.toDto(account);
+
+        return ResponseEntity.ok(Map.of(
+                "message", "Account fetched successfully",
+                "result", accountResponseDto
         ));
     }
 }
