@@ -1,5 +1,6 @@
 package com.pm.accountservice.service;
 
+import com.pm.accountservice.client.CurrencyClientApi;
 import com.pm.accountservice.dto.CreateAccountRequestDto;
 import com.pm.accountservice.entity.Account;
 import com.pm.accountservice.entity.AccountStatus;
