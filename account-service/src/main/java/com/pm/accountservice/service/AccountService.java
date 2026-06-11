@@ -68,7 +68,9 @@ public class AccountService {
             targetCurrency
         );
 
-        return currencyApiResponse.getData().get(targetCurrency).getValue();
+        BigDecimal rate = currencyApiResponse.getData().get(targetCurrency).getValue();
+
+        return balance.getBalance().multiply(rate).setScale(2, RoundingMode.HALF_UP);
     }
 
     public Account topUpBalance(TopUpRequestDto topUpRequestDto) {
