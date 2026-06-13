@@ -1,10 +1,8 @@
 package com.pm.accountservice.controller;
 
-import com.pm.accountservice.dto.AccountResponseDto;
-import com.pm.accountservice.dto.CreateAccountRequestDto;
-import com.pm.accountservice.dto.TopUpRequestDto;
-import com.pm.accountservice.dto.ViewOrChangeCurrencyDto;
+import com.pm.accountservice.dto.*;
 import com.pm.accountservice.entity.Account;
+import com.pm.accountservice.entity.CurrencyType;
 import com.pm.accountservice.service.AccountService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -12,9 +10,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.View;
 
 import java.math.BigDecimal;
 import java.util.Map;
+import java.util.UUID;
 
 @Slf4j
 @RestController
@@ -34,7 +34,8 @@ public class AccountController {
         return ResponseEntity.status(HttpStatus.CREATED).body(Map.of(
                 "message", "Account created successfully",
                 "result", accountResponseDto
-        ));
+            )
+        );
     }
 
     @GetMapping("/my")
@@ -47,19 +48,21 @@ public class AccountController {
         return ResponseEntity.ok(Map.of(
                 "message", "Account fetched successfully",
                 "result", dto
-        ));
+            )
+        );
     }
 
     @GetMapping("/my/balance/convert")
-    public ResponseEntity<?> getConvertedBalance(@Valid @RequestBody ViewOrChangeCurrencyDto dto) {
+    public ResponseEntity<?> getConvertedBalance(@RequestParam CurrencyType currency) {
         log.info("Getting converted balance");
 
-        BigDecimal converted = accountService.getConvertedBalance(dto);
+        BigDecimal converted = accountService.getConvertedBalance(currency);
 
         return ResponseEntity.ok(Map.of(
                 "message", "Balance converted successfully",
                 "result", converted
-        ));
+            )
+        );
     }
 
     @PostMapping("/my/balance")
@@ -72,6 +75,32 @@ public class AccountController {
         return ResponseEntity.ok(Map.of(
                 "message", "Account fetched successfully",
                 "result", accountResponseDto
-        ));
+            )
+        );
+    }
+
+    @PatchMapping("/{id}/freeze")
+    public ResponseEntity<?> freezeAccount(@PathVariable("id") UUID accountId) {
+        log.info("Freezing account {}", accountId);
+
+        Account account = accountService.freezeAccount(accountId);
+        AccountResponseDto accountResponseDto = accountService.toDto(account);
+
+        return ResponseEntity.ok(Map.of(
+                "message", "Account frozen successfully",
+                "result", accountResponseDto
+            )
+        );
+    }
+
+    @GetMapping("/account/{id}/balance")
+    public ResponseEntity<?> getBalance(@PathVariable("id") String accountId) {
+        log.info("Getting balance for account {}", accountId);
+
+        BalanceViewProjection viewProjection = accountService.getBalanceInternal(accountId);
+
+        return ResponseEntity.ok(
+                Map.of("result", viewProjection)
+        );
     }
 }

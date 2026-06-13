@@ -9,10 +9,14 @@ import com.pm.accountservice.exception.AccountFrozenException;
 import com.pm.accountservice.exception.AccountNotFoundWithUserIdException;
 import com.pm.accountservice.mapper.AccountMapper;
 import com.pm.accountservice.repository.AccountRepository;
+import jakarta.validation.constraints.NotNull;
+import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.validation.annotation.Validated;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -21,6 +25,8 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 @Slf4j
+@Transactional(readOnly = true)
+@Validated
 public class AccountService {
 
     private final AccountRepository accountRepository;
@@ -56,11 +62,11 @@ public class AccountService {
         return accountRepository.findByUserId(dummyId).orElseThrow(() -> new AccountNotFoundWithUserIdException(dummyId.toString()));
     }
 
-    public BigDecimal getConvertedBalance(ViewOrChangeCurrencyDto dto) {
+    public BigDecimal getConvertedBalance(@NotNull(message = "Currency must be selected!") CurrencyType type) {
         UUID dummyId = UUID.fromString("11111111-1111-1111-1111-111111111111");
 
         BalanceViewProjection balance = accountRepository.findBalanceByUserId(dummyId).orElseThrow(() -> new AccountNotFoundWithUserIdException(dummyId.toString()));
-        String targetCurrency = dto.getCurrency().name();
+        String targetCurrency = type.name();
 
         CurrencyApiResponse currencyApiResponse = currencyClientApi.convert(
             apiKey,
@@ -101,6 +107,21 @@ public class AccountService {
         }
 
         return accountRepository.save(account);
+    }
+
+    public Account freezeAccount(UUID accountId) {
+        Account account = accountRepository.findById(accountId).orElseThrow(() -> new AccountNotFoundWithUserIdException(accountId.toString()));
+
+        if(account.getStatus() == AccountStatus.FROZEN) {
+            throw new AccountFrozenException(accountId.toString());
+        }
+
+        account.setStatus(AccountStatus.FROZEN);
+        return accountRepository.save(account);
+    }
+
+    public BalanceViewProjection getBalanceInternal(String accountNumber) {
+        return accountRepository.findBalanceByAccountNumber(accountNumber).orElseThrow(() -> new AccountNotFoundWithUserIdException(accountNumber));
     }
 
     private String generateAccountNumber() {
