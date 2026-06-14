@@ -1,0 +1,5 @@
+databaseChangeLog:
+  - include:
+      file: db/changelog/changeset/create-transfer-entity.yaml
+  - include:
+      file: db/changelog/changeset/add-indexing-001.yaml

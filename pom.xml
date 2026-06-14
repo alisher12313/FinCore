@@ -15,6 +15,11 @@
         <version>4.0.6</version>
     </parent>
 
+    <modules>
+        <module>account-service</module>
+        <module>transaction-service</module>
+    </modules>
+
     <properties>
         <maven.compiler.source>21</maven.compiler.source>
         <maven.compiler.target>21</maven.compiler.target>

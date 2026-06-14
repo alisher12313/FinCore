@@ -1,0 +1,18 @@
+databaseChangeLog:
+  - changeSet:
+      id: 002-add-transfers-indexes
+      author: Alisher
+      changes:
+        - createIndex:
+            indexName: idx_transfers_initiated_by
+            tableName: transfers
+            columns:
+              - column:
+                  name: initiated_by
+
+        - createIndex:
+            indexName: idx_transfers_to_account_id
+            tableName: transfers
+            columns:
+              - column:
+                  name: to_account_id

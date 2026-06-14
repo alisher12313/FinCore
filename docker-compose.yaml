@@ -25,5 +25,33 @@ services:
       - "5451:5432"
     restart: unless-stopped
 
+  postgres-transaction:
+    container_name: postgres-transaction
+    image: postgres:16
+    environment:
+      POSTGRES_DB: transaction_db
+      POSTGRES_USER: transaction
+      POSTGRES_PASSWORD: password
+    volumes:
+      - postgres-transaction-data:/var/lib/postgresql/data
+    ports:
+      - "5452:5432"
+    restart: unless-stopped
+
+  mongo-transaction:
+    container_name: mongodb-audit-logs
+    image: mongo:7.0
+    environment:
+      MONGO_INITDB_DATABASE: transaction_db
+      MONGO_INITDB_ROOT_USERNAME: transaction
+      MONGO_INITDB_ROOT_PASSWORD: password
+    ports:
+      - "27020:27017"
+    volumes:
+      - mongo_audit_data:/data/db
+    restart: unless-stopped
+
 volumes:
   postgres-account-data:
+  postgres-transaction-data:
+  mongo_audit_data:

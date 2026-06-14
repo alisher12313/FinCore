@@ -3,3 +3,5 @@ databaseChangeLog:
       file: db/changelog/changeset/create-account-table.yaml
   - include:
       file: db/changelog/changeset/change-account-column1.yaml
+  - include:
+      file: db/changelog/changeset/add-indexes-for-account-entity.yaml

@@ -1,0 +1,22 @@
+databaseChangeLog:
+  - changeSet:
+      id: add-index-user-id
+      author: Alisher
+      changes:
+        - createIndex:
+            indexName: idx_user_id
+            tableName: accounts
+            columns:
+              - column:
+                  name: user_id
+
+  - changeSet:
+      id: add-index-account-number
+      author: Alisher
+      changes:
+        - createIndex:
+            indexName: idx_account_number
+            tableName: accounts
+            columns:
+              - column:
+                  name: account_number
