@@ -11,6 +11,7 @@ import java.util.UUID;
 @Repository
 public interface AccountRepository extends JpaRepository<Account, UUID> {
     Optional<Account> findByUserId(UUID userId);
+    Optional<Account> findByAccountNumber(String accountNumber);
     Optional<BalanceViewProjection> findBalanceByUserId(UUID userId);
     Optional<BalanceViewProjection> findBalanceByAccountNumber(String accountNumber);
 }

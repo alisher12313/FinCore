@@ -1,5 +1,7 @@
 package com.pm.transactionservice.service;
 
+import com.pm.transactionservice.client.AccountTransferClient;
+import com.pm.transactionservice.client.dto.InternalTransferRequestDto;
 import com.pm.transactionservice.dto.CreateTransferRequestDto;
 import com.pm.transactionservice.entity.Transaction;
 import com.pm.transactionservice.entity.TransactionStatus;
@@ -18,6 +20,7 @@ import java.util.UUID;
 public class TransferService {
 
     private final TransferRepository transferRepository;
+    private final AccountTransferClient accountTransferClient;
 
     // 1. check idempotency key
     // 2. build and save transfer with status PENDING
@@ -45,6 +48,20 @@ public class TransferService {
                 .build();
 
         //After feign call to Account service
+        try {
+            accountTransferClient.internalTransfer(
+                    new InternalTransferRequestDto(
+                            dto.getFromAccountNumber(),
+                            dto.getToAccountNumber(),
+                            dto.getAmount()
+                    )
+            );
+            transaction.setStatus(TransactionStatus.DONE);
+        } catch (Exception e) {
+            transaction.setStatus(TransactionStatus.FAILED);
+            transferRepository.save(transaction);
+            throw new RuntimeException("Transfer failed: " + e.getMessage());
+        }
 
         transaction.setStatus(TransactionStatus.DONE);
 

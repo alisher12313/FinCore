@@ -52,6 +52,15 @@ public class GlobalExceptionHandler {
         );
     }
 
+    @ExceptionHandler(InsufficientBalanceException.class)
+    public ResponseEntity<?> handleAccountFrozenException(InsufficientBalanceException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                Map.of(
+                        "error", ex.getMessage()
+                )
+        );
+    }
+
     @ExceptionHandler(HttpMessageNotReadableException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public Map<String, Object> handleInvalidJsonOrEnum(HttpMessageNotReadableException ex) {

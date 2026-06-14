@@ -7,6 +7,7 @@ import com.pm.accountservice.entity.AccountStatus;
 import com.pm.accountservice.entity.CurrencyType;
 import com.pm.accountservice.exception.AccountFrozenException;
 import com.pm.accountservice.exception.AccountNotFoundWithUserIdException;
+import com.pm.accountservice.exception.InsufficientBalanceException;
 import com.pm.accountservice.mapper.AccountMapper;
 import com.pm.accountservice.repository.AccountRepository;
 import jakarta.validation.constraints.NotNull;
@@ -18,8 +19,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
 
+import javax.naming.InsufficientResourcesException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -130,5 +133,31 @@ public class AccountService {
 
     public AccountResponseDto toDto(Account account) {
         return accountMapper.toDto(account);
+    }
+
+    public void internalTransfer(InternalTransferRequestDto transferRequestDto) {
+        String from = transferRequestDto.fromAccountNumber();
+        String to = transferRequestDto.toAccountNumber();
+        BigDecimal amount = transferRequestDto.amount();
+
+        Account sender = accountRepository.findByAccountNumber(from).orElseThrow(() -> new AccountNotFoundWithUserIdException(from));
+        Account receiver = accountRepository.findByAccountNumber(to).orElseThrow(() -> new AccountNotFoundWithUserIdException(from));
+
+        if(sender.getStatus() == AccountStatus.FROZEN) {
+            throw new AccountFrozenException(from);
+        }
+
+        if(receiver.getStatus() == AccountStatus.FROZEN) {
+            throw new AccountFrozenException(to);
+        }
+
+        if(sender.getBalance().compareTo(amount) < 0) {
+            throw new InsufficientBalanceException(sender.getId());
+        }
+
+        sender.setBalance(sender.getBalance().subtract(amount).setScale(2, RoundingMode.HALF_UP));
+        receiver.setBalance(receiver.getBalance().add(amount).setScale(2, RoundingMode.HALF_UP));
+
+        accountRepository.saveAll(List.of(sender, receiver));
     }
 }

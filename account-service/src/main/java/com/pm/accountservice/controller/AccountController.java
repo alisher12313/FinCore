@@ -103,4 +103,12 @@ public class AccountController {
                 Map.of("result", viewProjection)
         );
     }
+
+    @PostMapping("/internal/transfer")
+    public ResponseEntity<?> internalTransfer(@Valid @RequestBody InternalTransferRequestDto dto) {
+        accountService.internalTransfer(
+                dto
+        );
+        return ResponseEntity.ok(Map.of("message", "Transfer completed successfully"));
+    }
 }
