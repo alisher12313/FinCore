@@ -1,6 +1,6 @@
 package com.pm.transactionservice.repository;
 
-import com.pm.transactionservice.entity.Transaction;
+import com.pm.transactionservice.entity.sql.Transaction;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.stereotype.Repository;

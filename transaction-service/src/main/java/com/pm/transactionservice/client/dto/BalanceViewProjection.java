@@ -1,6 +1,6 @@
 package com.pm.transactionservice.client.dto;
 
-import com.pm.transactionservice.entity.CurrencyType;
+import com.pm.transactionservice.entity.sql.CurrencyType;
 
 import java.math.BigDecimal;
 

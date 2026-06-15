@@ -4,8 +4,8 @@ import com.pm.transactionservice.client.AccountTransferClient;
 import com.pm.transactionservice.client.dto.InternalTransferRequestDto;
 import com.pm.transactionservice.dto.CreateTransferRequestDto;
 import com.pm.transactionservice.dto.TransferResponseDto;
-import com.pm.transactionservice.entity.Transaction;
-import com.pm.transactionservice.entity.TransactionStatus;
+import com.pm.transactionservice.entity.sql.Transaction;
+import com.pm.transactionservice.entity.sql.TransactionStatus;
 import com.pm.transactionservice.exception.TransferFailedException;
 import com.pm.transactionservice.exception.TransferNotFoundException;
 import com.pm.transactionservice.mapper.TransferMapper;
@@ -19,7 +19,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 

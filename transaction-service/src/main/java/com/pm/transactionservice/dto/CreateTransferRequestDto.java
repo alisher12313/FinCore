@@ -1,6 +1,6 @@
 package com.pm.transactionservice.dto;
 
-import com.pm.transactionservice.entity.CurrencyType;
+import com.pm.transactionservice.entity.sql.CurrencyType;
 import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;

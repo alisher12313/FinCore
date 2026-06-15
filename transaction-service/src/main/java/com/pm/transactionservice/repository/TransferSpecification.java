@@ -1,8 +1,7 @@
 package com.pm.transactionservice.repository;
 
-import com.pm.transactionservice.entity.CurrencyType;
-import com.pm.transactionservice.entity.Transaction;
-import com.pm.transactionservice.entity.TransactionStatus;
+import com.pm.transactionservice.entity.sql.Transaction;
+import com.pm.transactionservice.entity.sql.TransactionStatus;
 import org.springframework.data.jpa.domain.Specification;
 
 import java.math.BigDecimal;

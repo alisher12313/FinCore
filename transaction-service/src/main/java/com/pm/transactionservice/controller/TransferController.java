@@ -1,8 +1,8 @@
 package com.pm.transactionservice.controller;
 
 import com.pm.transactionservice.dto.CreateTransferRequestDto;
-import com.pm.transactionservice.entity.Transaction;
-import com.pm.transactionservice.entity.TransactionStatus;
+import com.pm.transactionservice.entity.sql.Transaction;
+import com.pm.transactionservice.entity.sql.TransactionStatus;
 import com.pm.transactionservice.mapper.TransferMapper;
 import com.pm.transactionservice.service.TransferService;
 import jakarta.validation.Valid;
