@@ -1,4 +1,4 @@
-package com.pm.transactionservice.repository;
+package com.pm.transactionservice.repository.sql;
 
 import com.pm.transactionservice.entity.sql.Transaction;
 import org.springframework.data.jpa.repository.JpaRepository;
