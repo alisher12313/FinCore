@@ -16,5 +16,4 @@ public interface AccountTransferClient {
 
     @PostMapping("/internal/transfer")
     void internalTransfer(@RequestBody InternalTransferRequestDto dto);
-
 }

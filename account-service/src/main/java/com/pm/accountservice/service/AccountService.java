@@ -95,19 +95,8 @@ public class AccountService {
             throw new AccountFrozenException(dummyId.toString());
         }
 
-        if (accountCurrency.equals(currencyType)) {
-            account.setBalance(account.getBalance().add(amount).setScale(2, RoundingMode.HALF_UP));
-        } else {
-            CurrencyApiResponse currencyApiResponse = currencyClientApi.convert(
-                    apiKey,
-                    currencyType,
-                    accountCurrency
-            );
-
-            BigDecimal rate = currencyApiResponse.getData().get(accountCurrency).getValue();
-            BigDecimal targetToTopUp = amount.multiply(rate).setScale(2, RoundingMode.HALF_UP);
-            account.setBalance(account.getBalance().add(targetToTopUp).setScale(2, RoundingMode.HALF_UP));
-        }
+        BigDecimal amountToAdd = convertAmount(amount, currencyType, accountCurrency);
+        account.setBalance(account.getBalance().add(amountToAdd).setScale(2, RoundingMode.HALF_UP));
 
         return accountRepository.save(account);
     }
@@ -155,9 +144,23 @@ public class AccountService {
             throw new InsufficientBalanceException(sender.getId());
         }
 
+        CurrencyType fromCurrency = sender.getCurrency();
+        CurrencyType toCurrency = receiver.getCurrency();
+
         sender.setBalance(sender.getBalance().subtract(amount).setScale(2, RoundingMode.HALF_UP));
-        receiver.setBalance(receiver.getBalance().add(amount).setScale(2, RoundingMode.HALF_UP));
+        BigDecimal amountToCredit = convertAmount(amount, fromCurrency.name(), toCurrency.name());
+        receiver.setBalance(receiver.getBalance().add(amountToCredit).setScale(2, RoundingMode.HALF_UP));
 
         accountRepository.saveAll(List.of(sender, receiver));
+    }
+
+    private BigDecimal convertAmount(BigDecimal amount, String fromCurrency, String toCurrency){
+        if (fromCurrency.equals(toCurrency)) {
+            return amount;
+        }
+
+        CurrencyApiResponse response = currencyClientApi.convert(apiKey, fromCurrency, toCurrency);
+        BigDecimal rate = response.getData().get(toCurrency).getValue();
+        return amount.multiply(rate).setScale(2, RoundingMode.HALF_UP);
     }
 }

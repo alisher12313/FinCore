@@ -3,13 +3,22 @@ package com.pm.transactionservice.service;
 import com.pm.transactionservice.client.AccountTransferClient;
 import com.pm.transactionservice.client.dto.InternalTransferRequestDto;
 import com.pm.transactionservice.dto.CreateTransferRequestDto;
+import com.pm.transactionservice.dto.TransferResponseDto;
 import com.pm.transactionservice.entity.Transaction;
 import com.pm.transactionservice.entity.TransactionStatus;
+import com.pm.transactionservice.exception.TransferFailedException;
+import com.pm.transactionservice.exception.TransferNotFoundException;
+import com.pm.transactionservice.mapper.TransferMapper;
 import com.pm.transactionservice.repository.TransferRepository;
+import com.pm.transactionservice.repository.TransferSpecification;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -21,6 +30,7 @@ public class TransferService {
 
     private final TransferRepository transferRepository;
     private final AccountTransferClient accountTransferClient;
+    private final TransferMapper transferMapper;
 
     // 1. check idempotency key
     // 2. build and save transfer with status PENDING
@@ -60,20 +70,27 @@ public class TransferService {
         } catch (Exception e) {
             transaction.setStatus(TransactionStatus.FAILED);
             transferRepository.save(transaction);
-            throw new RuntimeException("Transfer failed: " + e.getMessage());
+            throw new TransferFailedException("Transfer failed: " + e.getMessage());
         }
-
-        transaction.setStatus(TransactionStatus.DONE);
 
         return transferRepository.save(transaction);
     }
 
     public Transaction getTransfer(UUID id) {
-        return transferRepository.findById(id).orElseThrow(() -> new RuntimeException("Transfer not found: " + id));
+        return transferRepository.findById(id).orElseThrow(() -> new TransferNotFoundException("Transfer not found: " + id));
     }
 
-    public List<Transaction> getHistory() {
+    public Page<TransferResponseDto> getHistory(
+            TransactionStatus status,
+            BigDecimal minAmount,
+            LocalDateTime createdAfter,
+            Pageable pageable) {
+
         UUID dummyUserId = UUID.fromString("11111111-1111-1111-1111-111111111111");
-        return transferRepository.findByInitiatedBy(dummyUserId);
+
+        return transferRepository.findAll(
+                TransferSpecification.filter(dummyUserId, status, minAmount, createdAfter),
+                pageable
+        ).map(transferMapper::toDto);
     }
 }
