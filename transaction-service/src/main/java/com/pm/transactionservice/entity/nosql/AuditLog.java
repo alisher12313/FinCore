@@ -1,16 +1,23 @@
 package com.pm.transactionservice.entity.nosql;
 
-import jakarta.persistence.Id;
-import org.bson.types.ObjectId;
+import lombok.*;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Document(collection = "audit_logs")
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+@ToString
 public class AuditLog {
     @Id
-    private ObjectId _id;
+    private String id;
 
     private String transferId;
     private EventType eventType;
@@ -18,5 +25,7 @@ public class AuditLog {
     private String toAccountId;
     private BigDecimal amount;
     private String initiatedBy;
+
+    @CreatedDate
     private LocalDateTime createdAt;
 }

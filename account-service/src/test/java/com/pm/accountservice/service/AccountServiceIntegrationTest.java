@@ -15,7 +15,6 @@ import java.math.BigDecimal;
 
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
-
 @SpringBootTest
 @ActiveProfiles("test")
 public class AccountServiceIntegrationTest {

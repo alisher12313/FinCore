@@ -1,8 +1,7 @@
 package com.pm.transactionservice.repository.nosql;
 
 import com.pm.transactionservice.entity.nosql.AuditLog;
-import org.bson.types.ObjectId;
 import org.springframework.data.mongodb.repository.MongoRepository;
 
-public interface AuditLogRepository extends MongoRepository<AuditLog, ObjectId> {
+public interface AuditLogRepository extends MongoRepository<AuditLog, String> {
 }
