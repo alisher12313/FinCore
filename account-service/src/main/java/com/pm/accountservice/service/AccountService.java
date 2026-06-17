@@ -5,25 +5,30 @@ import com.pm.accountservice.dto.*;
 import com.pm.accountservice.entity.Account;
 import com.pm.accountservice.entity.AccountStatus;
 import com.pm.accountservice.entity.CurrencyType;
+import com.pm.accountservice.events.AccountFreezeEvent;
 import com.pm.accountservice.exception.AccountFrozenException;
 import com.pm.accountservice.exception.AccountNotFoundWithUserIdException;
 import com.pm.accountservice.exception.InsufficientBalanceException;
 import com.pm.accountservice.mapper.AccountMapper;
 import com.pm.accountservice.repository.AccountRepository;
 import jakarta.validation.constraints.NotNull;
-import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.kafka.clients.producer.ProducerRecord;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.kafka.support.SendResult;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
 
-import javax.naming.InsufficientResourcesException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 
 @Service
 @RequiredArgsConstructor
@@ -35,9 +40,13 @@ public class AccountService {
     private final AccountRepository accountRepository;
     private final AccountMapper accountMapper;
     private final CurrencyClientApi currencyClientApi;
+    private final KafkaTemplate<String, AccountFreezeEvent> accountFreezeEventKafkaTemplate;
 
     @Value("${currency.api}")
     private String apiKey;
+
+    @Value("${app.kafka-topics.topic-name}")
+    private String accountFreezeEventTopic;
 
     public Account createAccount(CreateAccountRequestDto accountRequest) {
         log.info("Creating account {}", accountRequest.toString());
@@ -65,6 +74,7 @@ public class AccountService {
         return accountRepository.findByUserId(dummyId).orElseThrow(() -> new AccountNotFoundWithUserIdException(dummyId.toString()));
     }
 
+    //todo: Inject Jwt token later using @AuthenticationPrincipal
     public BigDecimal getConvertedBalance(@NotNull(message = "Currency must be selected!") CurrencyType type) {
         UUID dummyId = UUID.fromString("11111111-1111-1111-1111-111111111111");
 
@@ -82,6 +92,7 @@ public class AccountService {
         return balance.getBalance().multiply(rate).setScale(2, RoundingMode.HALF_UP);
     }
 
+    //todo: Inject Jwt token later using @AuthenticationPrincipal
     public Account topUpBalance(TopUpRequestDto topUpRequestDto) {
         UUID dummyId = UUID.fromString("11111111-1111-1111-1111-111111111111");
 
@@ -101,7 +112,9 @@ public class AccountService {
         return accountRepository.save(account);
     }
 
+    //todo: Inject Jwt token later using @AuthenticationPrincipal
     public Account freezeAccount(UUID accountId) {
+        UUID dummyId = UUID.fromString("11111111-1111-1111-1111-111111111111");
         Account account = accountRepository.findById(accountId).orElseThrow(() -> new AccountNotFoundWithUserIdException(accountId.toString()));
 
         if(account.getStatus() == AccountStatus.FROZEN) {
@@ -109,6 +122,29 @@ public class AccountService {
         }
 
         account.setStatus(AccountStatus.FROZEN);
+
+        AccountFreezeEvent event = AccountFreezeEvent.builder()
+                .accountId(accountId)
+                .accountNumber(account.getAccountNumber())
+                .freezeTime(Instant.now())
+                .userId(dummyId)
+                .build();
+
+        ProducerRecord<String, AccountFreezeEvent> eventProducerRecord = new ProducerRecord<>(accountFreezeEventTopic, dummyId.toString(), event);
+        eventProducerRecord.headers().add("messageId", UUID.randomUUID().toString().getBytes(StandardCharsets.UTF_8));
+
+        CompletableFuture<SendResult<String, AccountFreezeEvent>> future = accountFreezeEventKafkaTemplate.send(eventProducerRecord);
+
+        future.whenComplete((res, ex) -> {
+            if(ex != null) {
+                log.error("Failed to send message: {}", ex.getMessage());
+                return;
+            }
+
+            var record = res.getRecordMetadata();
+            log.info("Message sent successfully! Topic: {}, Key: {}, Offset: {}, Timstamp: {}", record.topic(), res.getProducerRecord().key(), record.offset(), record.timestamp());
+        });
+
         return accountRepository.save(account);
     }
 
