@@ -93,6 +93,20 @@ public class AccountController {
         );
     }
 
+    @PatchMapping("/{id}/unfreeze")
+    public ResponseEntity<?> unfreezeAccount(@PathVariable("id") UUID accountId) {
+        log.info("Unfreezing account {}", accountId);
+
+        Account account = accountService.unfreezeAccount(accountId);
+        AccountResponseDto accountResponseDto = accountService.toDto(account);
+
+        return ResponseEntity.ok(Map.of(
+                        "message", "Account unfrozen successfully",
+                        "result", accountResponseDto
+                )
+        );
+    }
+
     @GetMapping("/account/{id}/balance")
     public ResponseEntity<?> getBalance(@PathVariable("id") String accountId) {
         log.info("Getting balance for account {}", accountId);

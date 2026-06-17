@@ -6,6 +6,10 @@ import com.pm.accountservice.entity.Account;
 import com.pm.accountservice.entity.AccountStatus;
 import com.pm.accountservice.entity.CurrencyType;
 import com.pm.accountservice.events.AccountFreezeEvent;
+import com.pm.accountservice.events.AccountUnfreezeEvent;
+import com.pm.accountservice.events.KafkaEventPublisher;
+import com.pm.accountservice.events.KafkaTopics;
+import com.pm.accountservice.exception.AccountAlreadyActiveException;
 import com.pm.accountservice.exception.AccountFrozenException;
 import com.pm.accountservice.exception.AccountNotFoundWithUserIdException;
 import com.pm.accountservice.exception.InsufficientBalanceException;
@@ -40,13 +44,11 @@ public class AccountService {
     private final AccountRepository accountRepository;
     private final AccountMapper accountMapper;
     private final CurrencyClientApi currencyClientApi;
-    private final KafkaTemplate<String, AccountFreezeEvent> accountFreezeEventKafkaTemplate;
+    private final KafkaEventPublisher kafkaEventPublisher;
+    private final KafkaTopics kafkaTopics;
 
     @Value("${currency.api}")
     private String apiKey;
-
-    @Value("${app.kafka-topics.topic-name}")
-    private String accountFreezeEventTopic;
 
     public Account createAccount(CreateAccountRequestDto accountRequest) {
         log.info("Creating account {}", accountRequest.toString());
@@ -122,6 +124,7 @@ public class AccountService {
         }
 
         account.setStatus(AccountStatus.FROZEN);
+        Account savedAccount = accountRepository.save(account);
 
         AccountFreezeEvent event = AccountFreezeEvent.builder()
                 .accountId(accountId)
@@ -130,22 +133,42 @@ public class AccountService {
                 .userId(dummyId)
                 .build();
 
-        ProducerRecord<String, AccountFreezeEvent> eventProducerRecord = new ProducerRecord<>(accountFreezeEventTopic, dummyId.toString(), event);
-        eventProducerRecord.headers().add("messageId", UUID.randomUUID().toString().getBytes(StandardCharsets.UTF_8));
+        kafkaEventPublisher.publish(kafkaTopics.getTopicFreezeAccount(), accountId.toString(), event);
+        return savedAccount;
+    }
 
-        CompletableFuture<SendResult<String, AccountFreezeEvent>> future = accountFreezeEventKafkaTemplate.send(eventProducerRecord);
+    public Account unfreezeAccount(UUID accountId) {
 
-        future.whenComplete((res, ex) -> {
-            if(ex != null) {
-                log.error("Failed to send message: {}", ex.getMessage());
-                return;
-            }
+        UUID dummyId = UUID.fromString(
+                "11111111-1111-1111-1111-111111111111"
+        );
 
-            var record = res.getRecordMetadata();
-            log.info("Message sent successfully! Topic: {}, Key: {}, Offset: {}, Timstamp: {}", record.topic(), res.getProducerRecord().key(), record.offset(), record.timestamp());
-        });
+        Account account = accountRepository.findById(accountId)
+                .orElseThrow(() ->
+                        new AccountNotFoundWithUserIdException(accountId.toString()));
 
-        return accountRepository.save(account);
+        if (account.getStatus() == AccountStatus.ACTIVE) {
+            throw new AccountAlreadyActiveException(accountId.toString());
+        }
+
+        account.setStatus(AccountStatus.ACTIVE);
+
+        Account savedAccount = accountRepository.save(account);
+
+        AccountUnfreezeEvent event = AccountUnfreezeEvent.builder()
+                .accountId(accountId)
+                .accountNumber(account.getAccountNumber())
+                .userId(dummyId)
+                .unfreezeTime(Instant.now())
+                .build();
+
+        kafkaEventPublisher.publish(
+                kafkaTopics.getTopicUnfreezeAccount(),
+                accountId.toString(),
+                event
+        );
+
+        return savedAccount;
     }
 
     public BalanceViewProjection getBalanceInternal(String accountNumber) {

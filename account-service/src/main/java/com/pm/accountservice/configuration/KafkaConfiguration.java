@@ -20,7 +20,7 @@ public class KafkaConfiguration {
     private Environment env;
 
     @Bean
-    public ProducerFactory<String, AccountFreezeEvent> accountFreezeEventProducerFactory() {
+    public ProducerFactory<String, Object> accountFreezeEventProducerFactory() {
         Map<String, Object> config = new HashMap<>();
 
         config.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, env.getProperty("spring.kafka.producer.bootstrap-servers"));
@@ -33,7 +33,7 @@ public class KafkaConfiguration {
     }
 
     @Bean
-    public KafkaTemplate<String, AccountFreezeEvent> accountFreezeEventKafkaTemplate() {
+    public KafkaTemplate<String, Object> kafkaTemplate() {
         return new KafkaTemplate<>(accountFreezeEventProducerFactory());
     }
 }
