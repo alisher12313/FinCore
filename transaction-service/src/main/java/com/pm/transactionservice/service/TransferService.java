@@ -8,6 +8,8 @@ import com.pm.transactionservice.entity.nosql.AuditLog;
 import com.pm.transactionservice.entity.nosql.EventType;
 import com.pm.transactionservice.entity.sql.Transaction;
 import com.pm.transactionservice.entity.sql.TransactionStatus;
+import com.pm.transactionservice.events.KafkaEventPublisher;
+import com.pm.transactionservice.events.TransferCompletedEvent;
 import com.pm.transactionservice.exception.TransferFailedException;
 import com.pm.transactionservice.exception.TransferNotFoundException;
 import com.pm.transactionservice.mapper.TransferMapper;
@@ -16,12 +18,14 @@ import com.pm.transactionservice.repository.sql.TransferRepository;
 import com.pm.transactionservice.repository.sql.TransferSpecification;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.UUID;
@@ -36,6 +40,10 @@ public class TransferService {
     private final AccountTransferClient accountTransferClient;
     private final TransferMapper transferMapper;
     private final AuditLogRepository auditLogRepository;
+    private final KafkaEventPublisher kafkaEventPublisher;
+
+    @Value("${app.kafka-topics.topic-transaction-complete}")
+    private String topicTransactionComplete;
 
     // todo: remove fromAccountId and toAccountId when Feign resolves UUIDs from account numbers
     // todo: replace dummyUserId with real userId from JWT (@AuthenticationPrincipal)
@@ -93,6 +101,18 @@ public class TransferService {
         auditLogRepository.save(auditLog);
 
         log.info("AuditLog saved with id: {}", auditLog.getId());
+
+        TransferCompletedEvent event = TransferCompletedEvent.builder()
+                .transferId(transaction.getId())
+                .fromAccountId(transaction.getFromAccountId())
+                .toAccountId(transaction.getToAccountId())
+                .amount(transaction.getAmount())
+                .currency(transaction.getCurrency())
+                .initiatedBy(transaction.getInitiatedBy())
+                .completedAt(Instant.now())
+                .build();
+
+        kafkaEventPublisher.publish(topicTransactionComplete, transaction.getId().toString(), event);
 
         return transaction;
     }
