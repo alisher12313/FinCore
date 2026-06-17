@@ -9,6 +9,7 @@ import org.springframework.core.env.Environment;
 import org.springframework.kafka.core.DefaultKafkaProducerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.core.ProducerFactory;
+import org.springframework.kafka.support.serializer.JacksonJsonSerializer;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -27,7 +28,10 @@ public class KafkaConfiguration {
         config.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, env.getProperty("spring.kafka.producer.key-serializer"));
         config.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, env.getProperty("spring.kafka.producer.value-serializer"));
         config.put(ProducerConfig.ACKS_CONFIG, env.getProperty("spring.kafka.producer.acks"));
-        config.put(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, env.getProperty("spring.kafka.producer.properties.enable.idempotence"));
+        config.put(JacksonJsonSerializer.ADD_TYPE_INFO_HEADERS, true);
+        config.put(JacksonJsonSerializer.TYPE_MAPPINGS,
+                "accountFreezeEvent:com.pm.accountservice.events.AccountFreezeEvent," +
+                        "accountUnfreezeEvent:com.pm.accountservice.events.AccountUnfreezeEvent");
 
         return new DefaultKafkaProducerFactory<>(config);
     }

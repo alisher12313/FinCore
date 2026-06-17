@@ -9,9 +9,8 @@ import org.springframework.stereotype.Component;
 @Component
 @Getter
 @Setter
-@ConfigurationProperties(prefix = "app.kafka-topics")
 public class KafkaTopics {
 
-    private String topicFreezeAccount;
-    private String topicUnfreezeAccount;
+    @Value("${app.kafka-topics.topic-change-account-status}")
+    private String topicAccountStatusChanged;
 }

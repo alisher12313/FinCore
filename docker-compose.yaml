@@ -48,7 +48,7 @@ services:
     ports:
       - "27020:27017"
     volumes:
-      - mongo_audit_data:/data/db
+      - mongo-audit-data:/data/db
     restart: unless-stopped
 
   kafka:
@@ -71,8 +71,22 @@ services:
     volumes:
       - kafka-fincore:/var/lib/kafka/data
 
+  mongodb-notification:
+    container_name: mongodb-notification-storage
+    image: mongo:7.0
+    environment:
+      MONGO_INITDB_DATABASE: notification_db
+      MONGO_INITDB_ROOT_USERNAME: notification
+      MONGO_INITDB_ROOT_PASSWORD: password
+    ports:
+      - "27022:27017"
+    volumes:
+      - mongo-notification-data:/data/db
+    restart: unless-stopped
+
 volumes:
   postgres-account-data:
   postgres-transaction-data:
-  mongo_audit_data:
+  mongo-audit-data:
   kafka-fincore:
+  mongo-notification-data:

@@ -133,7 +133,7 @@ public class AccountService {
                 .userId(dummyId)
                 .build();
 
-        kafkaEventPublisher.publish(kafkaTopics.getTopicFreezeAccount(), accountId.toString(), event);
+        kafkaEventPublisher.publish(kafkaTopics.getTopicAccountStatusChanged(), accountId.toString(), event);
         return savedAccount;
     }
 
@@ -163,7 +163,7 @@ public class AccountService {
                 .build();
 
         kafkaEventPublisher.publish(
-                kafkaTopics.getTopicUnfreezeAccount(),
+                kafkaTopics.getTopicAccountStatusChanged(),
                 accountId.toString(),
                 event
         );
