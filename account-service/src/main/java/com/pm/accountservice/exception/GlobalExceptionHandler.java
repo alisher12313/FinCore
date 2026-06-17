@@ -52,6 +52,15 @@ public class GlobalExceptionHandler {
         );
     }
 
+    @ExceptionHandler(AccountAlreadyActiveException.class)
+    public ResponseEntity<?> handleAccountAlreadyActiveException(AccountAlreadyActiveException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                Map.of(
+                        "error", ex.getMessage()
+                )
+        );
+    }
+
     @ExceptionHandler(InsufficientBalanceException.class)
     public ResponseEntity<?> handleAccountFrozenException(InsufficientBalanceException ex) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
