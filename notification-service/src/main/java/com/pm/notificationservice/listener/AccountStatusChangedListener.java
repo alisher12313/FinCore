@@ -1,6 +1,7 @@
 package com.pm.notificationservice.listener;
 
 import com.pm.notificationservice.events.AccountFreezeEvent;
+import com.pm.notificationservice.events.AccountUnfreezeEvent;
 import com.pm.notificationservice.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,10 +20,18 @@ public class AccountStatusChangedListener {
     private final NotificationService notificationService;
 
     @KafkaHandler
-    public void handle(@Payload AccountFreezeEvent event, @Header("messageId") String messageId) {
+    public void handleFreeze(@Payload AccountFreezeEvent event, @Header("messageId") String messageId) {
         log.info("=== ENTERED handle(AccountFreezeEvent) ===");
         log.info("Event received: {}", event);
         notificationService.handleAccountFrozen(event);
+        log.info("=== FINISHED handle(AccountFreezeEvent) ===");
+    }
+
+    @KafkaHandler
+    public void handleUnfreeze(@Payload AccountUnfreezeEvent event, @Header("messageId") String messageId) {
+        log.info("=== ENTERED handle(AccountFreezeEvent) ===");
+        log.info("Event received: {}", event);
+        notificationService.handleAccountUnfrozen(event);
         log.info("=== FINISHED handle(AccountFreezeEvent) ===");
     }
 }

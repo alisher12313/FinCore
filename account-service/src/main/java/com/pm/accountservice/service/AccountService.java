@@ -39,6 +39,7 @@ import java.util.concurrent.CompletableFuture;
 @Slf4j
 @Transactional
 @Validated
+//Later add email and phone number
 public class AccountService {
 
     private final AccountRepository accountRepository;
