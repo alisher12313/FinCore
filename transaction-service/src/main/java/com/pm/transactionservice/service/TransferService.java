@@ -21,10 +21,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.Optional;
@@ -41,6 +43,7 @@ public class TransferService {
     private final TransferMapper transferMapper;
     private final AuditLogRepository auditLogRepository;
     private final KafkaEventPublisher kafkaEventPublisher;
+    private final RedisTemplate<String, Object> redisTemplate;
 
     @Value("${app.kafka-topics.topic-transaction-complete}")
     private String topicTransactionComplete;
@@ -55,12 +58,17 @@ public class TransferService {
     @Transactional
     public Transaction createTransfer(CreateTransferRequestDto dto) {
         UUID dummyUserId = UUID.fromString("11111111-1111-1111-1111-111111111111");
-        String idempotencyKey = dto.getIdempotencyKey();
+        String idempotencyKey = String.format("transaction:%s", dto.getIdempotencyKey());
 
-        Optional<Transaction> existing = transferRepository.findByIdempotencyKey(idempotencyKey);
-        if (existing.isPresent()) {
-            return existing.get();
+        if(Boolean.TRUE.equals(redisTemplate.hasKey(idempotencyKey))) {
+            throw new TransferFailedException(idempotencyKey);
         }
+
+        //replaced by redis
+//        Optional<Transaction> existing = transferRepository.findByIdempotencyKey(idempotencyKey);
+//        if (existing.isPresent()) {
+//            return existing.get();
+//        }
 
         Transaction transaction = Transaction.builder()
                 .fromAccountId(UUID.fromString(dto.getFromAccountId()))
@@ -88,6 +96,7 @@ public class TransferService {
         }
 
         transaction = transferRepository.save(transaction);
+        redisTemplate.opsForValue().set(idempotencyKey, transaction, Duration.ofDays(1));
 
         AuditLog auditLog = AuditLog.builder()
                 .transferId(transaction.getId().toString())

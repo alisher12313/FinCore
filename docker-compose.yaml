@@ -84,9 +84,19 @@ services:
       - mongo-notification-data:/data/db
     restart: unless-stopped
 
+  redis-transaction:
+    container_name: redis-transaction-storage
+    image: redis:7.0
+    volumes:
+      - redis-transaction:/data
+    ports:
+      - "6343:6379"
+    restart: unless-stopped
+
 volumes:
   postgres-account-data:
   postgres-transaction-data:
   mongo-audit-data:
   kafka-fincore:
   mongo-notification-data:
+  redis-transaction:
