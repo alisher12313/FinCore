@@ -3,6 +3,7 @@ package com.pm.transactionservice.service;
 import com.pm.transactionservice.client.AccountTransferClient;
 import com.pm.transactionservice.client.dto.InternalTransferRequestDto;
 import com.pm.transactionservice.dto.CreateTransferRequestDto;
+import com.pm.transactionservice.dto.TransferIdempotencyDto;
 import com.pm.transactionservice.dto.TransferResponseDto;
 import com.pm.transactionservice.entity.nosql.AuditLog;
 import com.pm.transactionservice.entity.nosql.EventType;
@@ -61,7 +62,9 @@ public class TransferService {
         String idempotencyKey = String.format("transaction:%s", dto.getIdempotencyKey());
 
         if(Boolean.TRUE.equals(redisTemplate.hasKey(idempotencyKey))) {
-            throw new TransferFailedException(idempotencyKey);
+            TransferIdempotencyDto cached = (TransferIdempotencyDto) redisTemplate.opsForValue().get(idempotencyKey);
+            return transferRepository.findById(cached.getTransactionId())
+                    .orElseThrow(() -> new TransferNotFoundException("Transfer not found"));
         }
 
         //replaced by redis
@@ -96,7 +99,13 @@ public class TransferService {
         }
 
         transaction = transferRepository.save(transaction);
-        redisTemplate.opsForValue().set(idempotencyKey, transaction, Duration.ofDays(1));
+
+        TransferIdempotencyDto dto1 = TransferIdempotencyDto.builder()
+                .transactionId(transaction.getId())
+                .status(transaction.getStatus())
+                .build();
+
+        redisTemplate.opsForValue().set(idempotencyKey, dto1, Duration.ofDays(1));
 
         AuditLog auditLog = AuditLog.builder()
                 .transferId(transaction.getId().toString())

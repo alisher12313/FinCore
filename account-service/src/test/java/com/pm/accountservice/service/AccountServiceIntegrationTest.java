@@ -9,6 +9,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.test.context.ActiveProfiles;
 
 import java.math.BigDecimal;
@@ -31,11 +33,11 @@ public class AccountServiceIntegrationTest {
     }
 
     @Test
-    void createAccount_WhenRequestIsValid_ThenSaveAccountInDb(){
+    void createAccount_WhenRequestIsValid_ThenSaveAccountInDb(@AuthenticationPrincipal Jwt jwt){
         CreateAccountRequestDto request = new CreateAccountRequestDto();
         request.setCurrency(CurrencyType.KZT);
 
-        Account createdAccount = service.createAccount(request);
+        Account createdAccount = service.createAccount(request, jwt);
 
         assertThat(createdAccount).isNotNull();
         assertThat(createdAccount.getId()).isNotNull();

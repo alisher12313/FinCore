@@ -9,6 +9,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.View;
 
@@ -25,10 +27,10 @@ public class AccountController {
     private final AccountService accountService;
 
     @PostMapping
-    public ResponseEntity<?> createAccount(@Valid @RequestBody CreateAccountRequestDto accountRequest) {
+    public ResponseEntity<?> createAccount(@Valid @RequestBody CreateAccountRequestDto accountRequest, @AuthenticationPrincipal Jwt jwt) {
         log.info("Creating account");
 
-        Account account = accountService.createAccount(accountRequest);
+        Account account = accountService.createAccount(accountRequest, jwt);
         AccountResponseDto accountResponseDto = accountService.toDto(account);
 
         return ResponseEntity.status(HttpStatus.CREATED).body(Map.of(
@@ -39,10 +41,10 @@ public class AccountController {
     }
 
     @GetMapping("/my")
-    public ResponseEntity<?> getMyProfile() {
+    public ResponseEntity<?> getMyProfile(@AuthenticationPrincipal Jwt jwt) {
         log.info("Getting my profile");
 
-        Account account = accountService.getMyProfile();
+        Account account = accountService.getMyProfile(jwt);
         AccountResponseDto dto = accountService.toDto(account);
 
         return ResponseEntity.ok(Map.of(
@@ -53,10 +55,10 @@ public class AccountController {
     }
 
     @GetMapping("/my/balance/convert")
-    public ResponseEntity<?> getConvertedBalance(@RequestParam CurrencyType currency) {
+    public ResponseEntity<?> getConvertedBalance(@RequestParam CurrencyType currency, @AuthenticationPrincipal Jwt jwt) {
         log.info("Getting converted balance");
 
-        BigDecimal converted = accountService.getConvertedBalance(currency);
+        BigDecimal converted = accountService.getConvertedBalance(currency, jwt);
 
         return ResponseEntity.ok(Map.of(
                 "message", "Balance converted successfully",
@@ -66,10 +68,10 @@ public class AccountController {
     }
 
     @PostMapping("/my/balance")
-    public ResponseEntity<?> topUpBalance(@Valid @RequestBody TopUpRequestDto dto) {
+    public ResponseEntity<?> topUpBalance(@Valid @RequestBody TopUpRequestDto dto, @AuthenticationPrincipal Jwt jwt) {
         log.info("Top up balance");
 
-        Account account = accountService.topUpBalance(dto);
+        Account account = accountService.topUpBalance(dto, jwt);
         AccountResponseDto accountResponseDto = accountService.toDto(account);
 
         return ResponseEntity.ok(Map.of(
@@ -80,10 +82,10 @@ public class AccountController {
     }
 
     @PatchMapping("/{id}/freeze")
-    public ResponseEntity<?> freezeAccount(@PathVariable("id") UUID accountId) {
+    public ResponseEntity<?> freezeAccount(@PathVariable("id") UUID accountId, @AuthenticationPrincipal Jwt jwt) {
         log.info("Freezing account {}", accountId);
 
-        Account account = accountService.freezeAccount(accountId);
+        Account account = accountService.freezeAccount(accountId, jwt);
         AccountResponseDto accountResponseDto = accountService.toDto(account);
 
         return ResponseEntity.ok(Map.of(
@@ -94,10 +96,10 @@ public class AccountController {
     }
 
     @PatchMapping("/{id}/unfreeze")
-    public ResponseEntity<?> unfreezeAccount(@PathVariable("id") UUID accountId) {
+    public ResponseEntity<?> unfreezeAccount(@PathVariable("id") UUID accountId, @AuthenticationPrincipal Jwt jwt) {
         log.info("Unfreezing account {}", accountId);
 
-        Account account = accountService.unfreezeAccount(accountId);
+        Account account = accountService.unfreezeAccount(accountId, jwt);
         AccountResponseDto accountResponseDto = accountService.toDto(account);
 
         return ResponseEntity.ok(Map.of(
@@ -107,7 +109,7 @@ public class AccountController {
         );
     }
 
-    @GetMapping("/account/{id}/balance")
+    @GetMapping("/{id}/balance")
     public ResponseEntity<?> getBalance(@PathVariable("id") String accountId) {
         log.info("Getting balance for account {}", accountId);
 

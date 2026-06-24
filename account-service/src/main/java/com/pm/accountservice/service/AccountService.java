@@ -22,6 +22,8 @@ import org.apache.kafka.clients.producer.ProducerRecord;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.support.SendResult;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
@@ -51,16 +53,16 @@ public class AccountService {
     @Value("${currency.api}")
     private String apiKey;
 
-    public Account createAccount(CreateAccountRequestDto accountRequest) {
+    public Account createAccount(CreateAccountRequestDto accountRequest, Jwt jwt) {
         log.info("Creating account {}", accountRequest.toString());
-        UUID dummyId = UUID.fromString("11111111-1111-1111-1111-111111111111");
+        UUID userId = UUID.fromString(jwt.getSubject());
         String accountNumber = generateAccountNumber();
         BigDecimal balance = new BigDecimal(0);
         CurrencyType currencyType = accountRequest.getCurrency();
         AccountStatus status = AccountStatus.ACTIVE;
 
         Account account = Account.builder()
-                .userId(dummyId)
+                .userId(userId)
                 .accountNumber(accountNumber)
                 .balance(balance)
                 .currency(currencyType)
@@ -70,16 +72,14 @@ public class AccountService {
         return accountRepository.save(account);
     }
 
-    //todo: Inject Jwt token later using @AuthenticationPrincipal
-    public Account getMyProfile(){
-        UUID dummyId = UUID.fromString("11111111-1111-1111-1111-111111111111");
+    public Account getMyProfile(Jwt jwt){
+        UUID userId = UUID.fromString(jwt.getSubject());
 
-        return accountRepository.findByUserId(dummyId).orElseThrow(() -> new AccountNotFoundWithUserIdException(dummyId.toString()));
+        return accountRepository.findByUserId(userId).orElseThrow(() -> new AccountNotFoundWithUserIdException(userId.toString()));
     }
 
-    //todo: Inject Jwt token later using @AuthenticationPrincipal
-    public BigDecimal getConvertedBalance(@NotNull(message = "Currency must be selected!") CurrencyType type) {
-        UUID dummyId = UUID.fromString("11111111-1111-1111-1111-111111111111");
+    public BigDecimal getConvertedBalance(@NotNull(message = "Currency must be selected!") CurrencyType type, Jwt jwt) {
+        UUID dummyId = UUID.fromString(jwt.getSubject());
 
         BalanceViewProjection balance = accountRepository.findBalanceByUserId(dummyId).orElseThrow(() -> new AccountNotFoundWithUserIdException(dummyId.toString()));
         String targetCurrency = type.name();
@@ -95,9 +95,8 @@ public class AccountService {
         return balance.getBalance().multiply(rate).setScale(2, RoundingMode.HALF_UP);
     }
 
-    //todo: Inject Jwt token later using @AuthenticationPrincipal
-    public Account topUpBalance(TopUpRequestDto topUpRequestDto) {
-        UUID dummyId = UUID.fromString("11111111-1111-1111-1111-111111111111");
+    public Account topUpBalance(TopUpRequestDto topUpRequestDto, Jwt jwt) {
+        UUID dummyId = UUID.fromString(jwt.getSubject());
 
         Account account = accountRepository.findByUserId(dummyId).orElseThrow(() -> new AccountNotFoundWithUserIdException(dummyId.toString()));
         String currencyType = topUpRequestDto.getCurrencyType().name();
@@ -115,9 +114,8 @@ public class AccountService {
         return accountRepository.save(account);
     }
 
-    //todo: Inject Jwt token later using @AuthenticationPrincipal
-    public Account freezeAccount(UUID accountId) {
-        UUID dummyId = UUID.fromString("11111111-1111-1111-1111-111111111111");
+    public Account freezeAccount(UUID accountId, Jwt jwt) {
+        UUID dummyId = UUID.fromString(jwt.getSubject());
         Account account = accountRepository.findById(accountId).orElseThrow(() -> new AccountNotFoundWithUserIdException(accountId.toString()));
 
         if(account.getStatus() == AccountStatus.FROZEN) {
@@ -138,10 +136,10 @@ public class AccountService {
         return savedAccount;
     }
 
-    public Account unfreezeAccount(UUID accountId) {
+    public Account unfreezeAccount(UUID accountId, Jwt jwt) {
 
         UUID dummyId = UUID.fromString(
-                "11111111-1111-1111-1111-111111111111"
+                jwt.getSubject()
         );
 
         Account account = accountRepository.findById(accountId)
