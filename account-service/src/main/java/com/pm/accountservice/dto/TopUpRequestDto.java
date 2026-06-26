@@ -1,7 +1,6 @@
 package com.pm.accountservice.dto;
 
 import com.pm.accountservice.entity.CurrencyType;
-import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import lombok.Getter;

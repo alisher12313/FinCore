@@ -1,0 +1,14 @@
+databaseChangeLog:
+  - changeSet:
+      id: email-add
+      author: Alisher
+      changes:
+        - addColumn:
+            tableName: accounts
+            columns:
+              - column:
+                  name: email
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+                    unique: true

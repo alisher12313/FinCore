@@ -21,4 +21,5 @@ public class TransferCompletedEvent {
     private String currency;
     private UUID initiatedBy;
     private Instant completedAt;
+    private String email;
 }

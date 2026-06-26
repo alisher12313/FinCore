@@ -93,6 +93,15 @@ services:
       - "6343:6379"
     restart: unless-stopped
 
+  redis-account:
+    container_name: redis-account-storage
+    image: redis:7.0
+    volumes:
+      - redis-account:/data
+    ports:
+      - "6344:6379"
+    restart: unless-stopped
+
   postgres-keycloak:
     container_name: postgres-keycloak
     image: postgres:16
@@ -136,4 +145,5 @@ volumes:
   kafka-fincore:
   mongo-notification-data:
   redis-transaction:
+  redis-account:
   postgres-keycloak-data:

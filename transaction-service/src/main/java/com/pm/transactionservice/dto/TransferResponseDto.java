@@ -9,8 +9,6 @@ import java.util.UUID;
 
 public record TransferResponseDto(
         UUID id,
-        String fromAccountId,
-        String toAccountId,
         BigDecimal amount,
         CurrencyType currency,
         TransactionStatus status,

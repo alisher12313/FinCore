@@ -42,7 +42,7 @@ public class NotificationService {
             Thank you,
             Banking Application Team
             """.formatted(event.getAccountNumber());
-            sendEmailNotification("test1231312313@gmail.com", body, subject);
+            sendEmailNotification(event.getEmail(), body, subject);
             status = NotificationStatus.SENT;
         } catch (Exception e) {
             log.error("Failed to send notification: {}", e.getMessage());
@@ -75,7 +75,7 @@ public class NotificationService {
             Best regards,
             Banking Application Team
             """.formatted(event.getAccountNumber());
-            sendEmailNotification("test1231312313@gmail.com", body, subject);
+            sendEmailNotification(event.getEmail(), body, subject);
             status = NotificationStatus.SENT;
         } catch (Exception e) {
             log.error("Failed to send notification: {}", e.getMessage());
@@ -115,7 +115,7 @@ public class NotificationService {
                                 event.getCurrency(),
                                 event.getTransferId()
                         );
-            sendEmailNotification("test1231312313@gmail.com", body, subject);
+            sendEmailNotification(event.getEmail(), body, subject);
             status = NotificationStatus.SENT;
         } catch (Exception e) {
             log.error("Failed to send notification: {}", e.getMessage());

@@ -16,4 +16,5 @@ public class AccountFreezeEvent {
     private UUID userId;
     private String accountNumber;
     private Instant freezeTime;
+    private String email;
 }

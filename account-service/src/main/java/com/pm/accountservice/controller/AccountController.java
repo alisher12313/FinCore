@@ -12,7 +12,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.servlet.View;
 
 import java.math.BigDecimal;
 import java.util.Map;
@@ -109,15 +108,31 @@ public class AccountController {
         );
     }
 
-    @GetMapping("/{id}/balance")
-    public ResponseEntity<?> getBalance(@PathVariable("id") String accountId) {
+    @GetMapping("internal/{id}/balance")
+    public ResponseEntity<BalanceViewProjection> getBalance(@PathVariable("id") String accountId) {
         log.info("Getting balance for account {}", accountId);
 
         BalanceViewProjection viewProjection = accountService.getBalanceInternal(accountId);
 
         return ResponseEntity.ok(
-                Map.of("result", viewProjection)
+                viewProjection
         );
+    }
+
+    @GetMapping("/internal/users/{userId}/account")
+    public AccountResponseDto getAccountByUserId(
+            @PathVariable UUID userId) {
+
+        return accountService.getByUserId(userId);
+    }
+
+    @GetMapping("/internal/{id}")
+    public ResponseEntity<?> getAccountByAccountNumber(@PathVariable("id") String accountNumber) {
+        log.info("Getting account by account {}", accountNumber);
+
+        AccountResponseDto dto = accountService.toDto(accountService.getAccountByNumber(accountNumber));
+
+        return ResponseEntity.ok(dto);
     }
 
     @PostMapping("/internal/transfer")

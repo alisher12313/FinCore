@@ -20,6 +20,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.support.SendResult;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -56,6 +58,7 @@ public class AccountService {
     public Account createAccount(CreateAccountRequestDto accountRequest, Jwt jwt) {
         log.info("Creating account {}", accountRequest.toString());
         UUID userId = UUID.fromString(jwt.getSubject());
+        String email = jwt.getClaim("email");
         String accountNumber = generateAccountNumber();
         BigDecimal balance = new BigDecimal(0);
         CurrencyType currencyType = accountRequest.getCurrency();
@@ -67,11 +70,13 @@ public class AccountService {
                 .balance(balance)
                 .currency(currencyType)
                 .status(status)
+                .email(email)
                 .build();
 
         return accountRepository.save(account);
     }
 
+    @Cacheable(value = "accounts", key = "#jwt.subject")
     public Account getMyProfile(Jwt jwt){
         UUID userId = UUID.fromString(jwt.getSubject());
 
@@ -95,6 +100,7 @@ public class AccountService {
         return balance.getBalance().multiply(rate).setScale(2, RoundingMode.HALF_UP);
     }
 
+    @CacheEvict(value = "accounts", key = "#jwt.subject")
     public Account topUpBalance(TopUpRequestDto topUpRequestDto, Jwt jwt) {
         UUID dummyId = UUID.fromString(jwt.getSubject());
 
@@ -114,11 +120,12 @@ public class AccountService {
         return accountRepository.save(account);
     }
 
+    @CacheEvict(value = "accounts", key = "#jwt.subject")
     public Account freezeAccount(UUID accountId, Jwt jwt) {
-        UUID dummyId = UUID.fromString(jwt.getSubject());
-        Account account = accountRepository.findById(accountId).orElseThrow(() -> new AccountNotFoundWithUserIdException(accountId.toString()));
+        Account account = accountRepository.findById(accountId)
+                .orElseThrow(() -> new AccountNotFoundWithUserIdException(accountId.toString()));
 
-        if(account.getStatus() == AccountStatus.FROZEN) {
+        if (account.getStatus() == AccountStatus.FROZEN) {
             throw new AccountFrozenException(accountId.toString());
         }
 
@@ -129,44 +136,35 @@ public class AccountService {
                 .accountId(accountId)
                 .accountNumber(account.getAccountNumber())
                 .freezeTime(Instant.now())
-                .userId(dummyId)
+                .userId(account.getUserId())
+                .email(account.getEmail())
                 .build();
 
         kafkaEventPublisher.publish(kafkaTopics.getTopicAccountStatusChanged(), accountId.toString(), event);
         return savedAccount;
     }
 
+    @CacheEvict(value = "accounts", key = "#jwt.subject")
     public Account unfreezeAccount(UUID accountId, Jwt jwt) {
-
-        UUID dummyId = UUID.fromString(
-                jwt.getSubject()
-        );
-
         Account account = accountRepository.findById(accountId)
-                .orElseThrow(() ->
-                        new AccountNotFoundWithUserIdException(accountId.toString()));
+                .orElseThrow(() -> new AccountNotFoundWithUserIdException(accountId.toString()));
 
         if (account.getStatus() == AccountStatus.ACTIVE) {
-            throw new AccountAlreadyActiveException(accountId.toString());
+            throw new AccountFrozenException(accountId.toString());
         }
 
-        account.setStatus(AccountStatus.ACTIVE);
-
+        account.setStatus(AccountStatus.FROZEN);
         Account savedAccount = accountRepository.save(account);
 
         AccountUnfreezeEvent event = AccountUnfreezeEvent.builder()
                 .accountId(accountId)
                 .accountNumber(account.getAccountNumber())
-                .userId(dummyId)
                 .unfreezeTime(Instant.now())
+                .userId(account.getUserId())
+                .email(account.getEmail())
                 .build();
 
-        kafkaEventPublisher.publish(
-                kafkaTopics.getTopicAccountStatusChanged(),
-                accountId.toString(),
-                event
-        );
-
+        kafkaEventPublisher.publish(kafkaTopics.getTopicAccountStatusChanged(), accountId.toString(), event);
         return savedAccount;
     }
 
@@ -220,5 +218,13 @@ public class AccountService {
         CurrencyApiResponse response = currencyClientApi.convert(apiKey, fromCurrency, toCurrency);
         BigDecimal rate = response.getData().get(toCurrency).getValue();
         return amount.multiply(rate).setScale(2, RoundingMode.HALF_UP);
+    }
+
+    public Account getAccountByNumber(String accountNumber) {
+        return accountRepository.findByAccountNumber(accountNumber).orElseThrow(() -> new AccountNotFoundWithUserIdException(accountNumber));
+    }
+
+    public AccountResponseDto getByUserId(UUID userId) {
+        return accountMapper.toDto(accountRepository.findByUserId(userId).orElseThrow());
     }
 }

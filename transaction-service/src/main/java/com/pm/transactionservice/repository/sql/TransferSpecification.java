@@ -12,20 +12,21 @@ public class TransferSpecification {
 
     public static Specification<Transaction> filter(
             UUID initiatedBy,
+            UUID toAccountId,
             TransactionStatus status,
             BigDecimal minAmount,
             LocalDateTime createdAfter) {
 
         return Specification
-                .where(initiatedBy(initiatedBy))
+                .where(initiatedBy(initiatedBy, toAccountId))
                 .and(hasStatus(status))
                 .and(amountGreaterThan(minAmount))
                 .and(createdAfter(createdAfter));
     }
 
-    public static Specification<Transaction> initiatedBy(UUID initiatedBy) {
+    public static Specification<Transaction> initiatedBy(UUID initiatedBy, UUID accountId) {
         return ((root, query, criteriaBuilder) ->
-                    initiatedBy == null ? null : criteriaBuilder.equal(root.get("initiatedBy"), initiatedBy)
+                    initiatedBy == null ? null : criteriaBuilder.or(criteriaBuilder.equal(root.get("initiatedBy"), initiatedBy), criteriaBuilder.equal(root.get("toAccountId"), accountId))
                 );
     }
 

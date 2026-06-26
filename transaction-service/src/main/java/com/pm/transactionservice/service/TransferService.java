@@ -1,6 +1,7 @@
 package com.pm.transactionservice.service;
 
 import com.pm.transactionservice.client.AccountTransferClient;
+import com.pm.transactionservice.client.dto.AccountResponseDto;
 import com.pm.transactionservice.client.dto.InternalTransferRequestDto;
 import com.pm.transactionservice.dto.CreateTransferRequestDto;
 import com.pm.transactionservice.dto.TransferResponseDto;
@@ -22,6 +23,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,6 +31,7 @@ import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -47,16 +50,10 @@ public class TransferService {
     @Value("${app.kafka-topics.topic-transaction-complete}")
     private String topicTransactionComplete;
 
-    // todo: remove fromAccountId and toAccountId when Feign resolves UUIDs from account numbers
-    // todo: replace dummyUserId with real userId from JWT (@AuthenticationPrincipal)
-    // todo: resolve fromAccountId and toAccountId via Feign call to Account Service using account numbers
-    // AccountResponseDto from = accountTransferClient.getAccountByNumber(dto.getFromAccountNumber());
-    // AccountResponseDto to = accountTransferClient.getAccountByNumber(dto.getToAccountNumber());
-    // UUID fromAccountId = from.getId();
-    // UUID toAccountId = to.getId();
     @Transactional
-    public Transaction createTransfer(CreateTransferRequestDto dto) {
-        UUID dummyUserId = UUID.fromString("11111111-1111-1111-1111-111111111111");
+    public Transaction createTransfer(CreateTransferRequestDto dto, Jwt jwt) {
+        UUID fromUserId = UUID.fromString(jwt.getSubject());
+        String email = jwt.getClaim("email");
         String idempotencyKey = String.format("transaction:%s", dto.getIdempotencyKey());
 
         if(Boolean.TRUE.equals(redisTemplate.hasKey(idempotencyKey))) {
@@ -69,20 +66,25 @@ public class TransferService {
 //            return existing.get();
 //        }
 
+        AccountResponseDto from = accountTransferClient.getAccountByUserId(UUID.fromString(jwt.getSubject())).getBody();
+        AccountResponseDto to = accountTransferClient.getAccountByAccountNumber(dto.getToAccountNumber()).getBody();
+        UUID fromAccountId = Optional.ofNullable(from.getId()).orElseThrow();
+        UUID toAccountId = Optional.of(to.getId()).orElseThrow();
+
         Transaction transaction = Transaction.builder()
-                .fromAccountId(UUID.fromString(dto.getFromAccountId()))
-                .toAccountId(UUID.fromString(dto.getToAccountId()))
+                .fromAccountId(fromAccountId)
+                .toAccountId(toAccountId)
                 .amount(dto.getAmount())
                 .currency(dto.getCurrency())
                 .status(TransactionStatus.PENDING)
                 .idempotencyKey(dto.getIdempotencyKey())
-                .initiatedBy(dummyUserId)
+                .initiatedBy(fromUserId)
                 .build();
 
         try {
             accountTransferClient.internalTransfer(
                     new InternalTransferRequestDto(
-                            dto.getFromAccountNumber(),
+                            from.getAccountNumber(),
                             dto.getToAccountNumber(),
                             dto.getAmount()
                     )
@@ -119,6 +121,7 @@ public class TransferService {
                 .currency(transaction.getCurrency())
                 .initiatedBy(transaction.getInitiatedBy())
                 .completedAt(Instant.now())
+                .email(email)
                 .build();
 
         kafkaEventPublisher.publish(topicTransactionComplete, transaction.getId().toString(), event);
@@ -126,24 +129,53 @@ public class TransferService {
         return transaction;
     }
 
-    // todo: replace dummyUserId with real userId from JWT (@AuthenticationPrincipal)
-    // todo: fetch user's accountId via Feign and use findByInitiatedByOrToAccountId(userId, accountId)
-    public Transaction getTransfer(UUID id) {
-        return transferRepository.findById(id).orElseThrow(() -> new TransferNotFoundException("Transfer not found: " + id));
+    public Transaction getTransfer(UUID id, Jwt jwt) {
+
+        UUID userId = UUID.fromString(jwt.getSubject());
+
+        AccountResponseDto account =
+                Optional.ofNullable(
+                        accountTransferClient
+                                .getAccountByUserId(userId)
+                                .getBody()
+                ).orElseThrow();
+
+        return transferRepository
+                .findAccessibleTransfer(
+                        id,
+                        userId,
+                        account.getId()
+                )
+                .orElseThrow(() ->
+                        new TransferNotFoundException(
+                                "Transfer not found: " + id));
     }
 
-    // todo: add getAccountByNumber(String accountNumber) endpoint when Account Service exposes it
-    // todo: add client credentials token when security is configured
     public Page<TransferResponseDto> getHistory(
             TransactionStatus status,
             BigDecimal minAmount,
             LocalDateTime createdAfter,
-            Pageable pageable) {
+            Pageable pageable,
+            Jwt jwt
+    ) {
 
-        UUID dummyUserId = UUID.fromString("11111111-1111-1111-1111-111111111111");
+        UUID userId = UUID.fromString(jwt.getSubject());
+
+        AccountResponseDto account =
+                Optional.ofNullable(
+                        accountTransferClient
+                                .getAccountByUserId(userId)
+                                .getBody()
+                ).orElseThrow();
 
         return transferRepository.findAll(
-                TransferSpecification.filter(dummyUserId, status, minAmount, createdAfter),
+                TransferSpecification.filter(
+                        userId,
+                        account.getId(),
+                        status,
+                        minAmount,
+                        createdAfter
+                ),
                 pageable
         ).map(transferMapper::toDto);
     }

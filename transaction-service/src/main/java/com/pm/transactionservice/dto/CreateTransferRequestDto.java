@@ -16,15 +16,6 @@ import java.math.BigDecimal;
 @Builder
 @ToString
 public class CreateTransferRequestDto {
-    @NotBlank(message = "From account ID is required")
-    private String fromAccountId;
-
-    @NotBlank(message = "To account ID is required")
-    private String toAccountId;
-
-    @NotBlank(message = "From account number is required")
-    private String fromAccountNumber;
-
     @NotBlank(message = "To account number is required")
     private String toAccountNumber;
 
