@@ -19,6 +19,7 @@
         <module>account-service</module>
         <module>transaction-service</module>
         <module>notification-service</module>
+        <module>fincore-gateway</module>
     </modules>
 
     <properties>

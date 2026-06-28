@@ -52,7 +52,7 @@ public class SecurityConfiguration {
 
     @Bean
     public JwtDecoder jwtDecoder() {
-        return JwtDecoders.fromIssuerLocation("http://localhost:9090/realms/fincore");
+        return JwtDecoders.fromIssuerLocation("http://fincore-keycloak:8080/realms/fincore");
     }
 
 //    @Bean

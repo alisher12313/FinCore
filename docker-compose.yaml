@@ -13,6 +13,8 @@ services:
     ports:
       - "5450:5432"
     restart: unless-stopped
+    networks:
+      - fincore-network
 
   postgres-account-test:
     container_name: postgres-account-test
@@ -24,6 +26,8 @@ services:
     ports:
       - "5451:5432"
     restart: unless-stopped
+    networks:
+      - fincore-network
 
   postgres-transaction:
     container_name: postgres-transaction
@@ -37,6 +41,8 @@ services:
     ports:
       - "5452:5432"
     restart: unless-stopped
+    networks:
+      - fincore-network
 
   mongo-transaction:
     container_name: mongodb-audit-logs
@@ -50,7 +56,8 @@ services:
     volumes:
       - mongo-audit-data:/data/db
     restart: unless-stopped
-
+    networks:
+      - fincore-network
   kafka:
     container_name: fincore-kafka
     image: confluentinc/cp-kafka:latest
@@ -59,9 +66,9 @@ services:
     environment:
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker, controller
-      KAFKA_CONTROLLER_QUORUM_VOTERS: '1@localhost:9093'
+      KAFKA_CONTROLLER_QUORUM_VOTERS: '1@fincore-kafka:9093'
       KAFKA_LISTENERS: 'PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093'
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://fincore-kafka:9092
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
       KAFKA_CLUSTER_ID: 4L62YDgVSOe6649zI7qWJw
@@ -70,6 +77,8 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
     volumes:
       - kafka-fincore:/var/lib/kafka/data
+    networks:
+      - fincore-network
 
   mongodb-notification:
     container_name: mongodb-notification-storage
@@ -83,6 +92,8 @@ services:
     volumes:
       - mongo-notification-data:/data/db
     restart: unless-stopped
+    networks:
+      - fincore-network
 
   redis-transaction:
     container_name: redis-transaction-storage
@@ -92,6 +103,8 @@ services:
     ports:
       - "6343:6379"
     restart: unless-stopped
+    networks:
+      - fincore-network
 
   redis-account:
     container_name: redis-account-storage
@@ -101,6 +114,8 @@ services:
     ports:
       - "6344:6379"
     restart: unless-stopped
+    networks:
+      - fincore-network
 
   postgres-keycloak:
     container_name: postgres-keycloak
@@ -114,6 +129,8 @@ services:
     volumes:
       - postgres-keycloak-data:/var/lib/postgresql/data
     restart: unless-stopped
+    networks:
+      - fincore-network
 
   keycloak:
     container_name: fincore-keycloak
@@ -137,11 +154,13 @@ services:
       - postgres-keycloak
 
     restart: unless-stopped
+    networks:
+      - fincore-network
 
   account-service:
     build:
-      context: ./account-service
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: account-service/Dockerfile
     container_name: account-service
     ports:
       - "8080:8080"
@@ -159,11 +178,13 @@ services:
       - kafka
       - keycloak
     restart: unless-stopped
+    networks:
+      - fincore-network
 
   transaction-service:
     build:
-      context: ./transaction-service
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: transaction-service/Dockerfile
     container_name: transaction-service
     ports:
       - "8082:8082"
@@ -185,11 +206,13 @@ services:
       - kafka
       - account-service
     restart: unless-stopped
+    networks:
+      - fincore-network
 
   notification-service:
     build:
-      context: ./notification-service
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: notification-service/Dockerfile
     container_name: notification-service
     ports:
       - "8084:8084"
@@ -201,11 +224,13 @@ services:
       - mongodb-notification
       - kafka
     restart: unless-stopped
+    networks:
+      - fincore-network
 
   gateway-service:
     build:
-      context: ./fincore-gateway
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: fincore-gateway/Dockerfile
     container_name: gateway-service
     ports:
       - "8085:8085"
@@ -218,6 +243,8 @@ services:
       - transaction-service
       - keycloak
     restart: unless-stopped
+    networks:
+      - fincore-network
 
 volumes:
   postgres-account-data:
@@ -228,3 +255,7 @@ volumes:
   redis-transaction:
   redis-account:
   postgres-keycloak-data:
+
+networks:
+  fincore-network:
+    driver: bridge
