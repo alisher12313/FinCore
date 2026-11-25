@@ -1,6 +1,5 @@
 package com.pm.accountservice.exception;
 
-import org.apache.catalina.connector.Response;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -44,7 +43,7 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(AccountFrozenException.class)
-    public ResponseEntity<?> handleAccountFrozenException(AccountNotFoundWithUserIdException ex) {
+    public ResponseEntity<?> handleAccountFrozenException(AccountFrozenException ex) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
                 Map.of(
                         "error", ex.getMessage()
@@ -62,7 +61,16 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(InsufficientBalanceException.class)
-    public ResponseEntity<?> handleAccountFrozenException(InsufficientBalanceException ex) {
+    public ResponseEntity<?> handleInsufficientBalanceException(InsufficientBalanceException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                Map.of(
+                        "error", ex.getMessage()
+                )
+        );
+    }
+
+    @ExceptionHandler(SelfTransferException.class)
+    public ResponseEntity<?> handleSelfTransferException(SelfTransferException ex) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
                 Map.of(
                         "error", ex.getMessage()

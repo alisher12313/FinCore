@@ -1,5 +1,8 @@
 package com.pm.transactionservice.configuration;
 
+import com.pm.transactionservice.middleware.RateLimitFilter;
+import com.pm.transactionservice.service.RateLimiterForTransactionService;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -15,6 +18,7 @@ import org.springframework.security.oauth2.client.web.DefaultOAuth2AuthorizedCli
 import org.springframework.security.oauth2.client.web.OAuth2AuthorizedClientRepository;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtDecoders;
+import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 import org.springframework.security.web.SecurityFilterChain;
 
 @EnableWebSecurity
@@ -22,7 +26,7 @@ import org.springframework.security.web.SecurityFilterChain;
 public class SecurityConfiguration {
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain securityFilterChain(HttpSecurity http, RateLimiterForTransactionService rateLimiter) throws Exception {
         http.csrf(AbstractHttpConfigurer::disable);
 
         http.oauth2ResourceServer(auth -> {
@@ -40,12 +44,15 @@ public class SecurityConfiguration {
                 session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
         );
 
+        // runs after the JWT is validated, so the limit can be per user
+        http.addFilterAfter(new RateLimitFilter(rateLimiter), BearerTokenAuthenticationFilter.class);
+
         return http.build();
     }
 
     @Bean
-    public JwtDecoder jwtDecoder() {
-        return JwtDecoders.fromIssuerLocation("http://fincore-keycloak:8080/realms/fincore");
+    public JwtDecoder jwtDecoder(@Value("${spring.security.oauth2.resourceserver.jwt.issuer-uri}") String issuerUri) {
+        return JwtDecoders.fromIssuerLocation(issuerUri);
     }
 
     @Bean
