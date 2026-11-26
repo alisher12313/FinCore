@@ -35,6 +35,12 @@ public class GlobalExceptionHandler {
                 .body(Map.of("error", e.getMessage()));
     }
 
+    @ExceptionHandler(CurrencyMismatchException.class)
+    public ResponseEntity<?> handleCurrencyMismatch(CurrencyMismatchException e) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(Map.of("error", e.getMessage()));
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<?> handleValidation(MethodArgumentNotValidException e) {
         Map<String, String> errors = new HashMap<>();

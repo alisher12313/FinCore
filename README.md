@@ -1,6 +1,6 @@
 # FinCore
 
-A production-grade banking microservices system built with Java, Spring Boot, and modern cloud-native technologies. FinCore simulates a real-world fintech backend with multi-currency transfers, event-driven notifications, OAuth2 security, and full observability.
+A banking microservices system built with Java, Spring Boot, and modern cloud-native technologies. FinCore simulates a real-world fintech backend with multi-currency transfers, event-driven notifications, OAuth2 security, and full observability.
 
 ---
 
@@ -71,8 +71,9 @@ A production-grade banking microservices system built with Java, Spring Boot, an
 ## Key Features
 
 - **Multi-currency transfers** — real-time exchange rate conversion via external currency API (KZT, USD, EUR)
-- **Idempotent transfers** — duplicate prevention using Redis (TTL 24h) + PostgreSQL fallback
-- **Rate limiting** — Redis-based fixed-window counter (5 transfers/min per user)
+- **Idempotent transfers** — per-user idempotency keys claimed atomically in Redis (`SET NX`) before any money moves, with the PostgreSQL unique constraint as the durable fallback
+- **Rate limiting** — Redis-based fixed-window counter (5 transfers/min per user, keyed on the JWT subject)
+- **Concurrency-safe balances** — pessimistic row locks (`SELECT ... FOR UPDATE`) acquired in a fixed order to prevent double spending and deadlocks
 - **Event-driven notifications** — Kafka async pipeline with dead-letter topic recovery and real Gmail email delivery
 - **Dual-database architecture** — PostgreSQL for transactional data, MongoDB for immutable audit logs and notifications
 - **OAuth2 security** — Keycloak Authorization Code + PKCE for users, Client Credentials for service-to-service calls
@@ -100,10 +101,11 @@ Load tested with k6 — 100 concurrent users, sustained 30 seconds:
 ```
 POST /transfers
     │
-    ├── Redis idempotency check (fast path)
     ├── Rate limit check (5/min per user)
-    ├── Feign → Account Service /internal/transfer (debit/credit)
-    ├── Save transfer record → PostgreSQL (DONE)
+    ├── Idempotency: return stored result if key already processed
+    ├── Claim key in Redis (SET NX), insert PENDING row → PostgreSQL
+    ├── Feign → Account Service /internal/transfer (locks rows, debit/credit)
+    ├── Update transfer → DONE (or FAILED)
     ├── Save audit log → MongoDB
     └── Publish transfer.completed → Kafka
                                           │
@@ -216,8 +218,8 @@ notifications: _id, userId, type, message, sentAt, status
 
 ### Redis Keys
 ```
-idempotency:{key}    → transferId string    TTL 24h
-rate:{userId}        → request counter      TTL 1min
+idempotency:{userId}:{key} → transferId (or IN_PROGRESS)  TTL 24h (5min while in progress)
+rate:{userId}:{window}     → request counter               TTL 1min
 accounts             → cached account DTO   TTL 10min
 ```
 
@@ -232,13 +234,37 @@ Audit logs are append-only and never updated — MongoDB's document model is a n
 Notifications are non-critical to the transfer flow — if email delivery fails, the transfer should still succeed. Kafka decouples the two concerns and provides at-least-once delivery guarantees with dead-letter topic recovery for failed events.
 
 **Why idempotency key in both Redis and PostgreSQL?**
-Redis is the fast path — O(1) lookup with TTL-based automatic expiry. PostgreSQL is the source of truth and fallback if Redis is cleared or restarted. The combination gives both performance and durability.
+Redis is the fast path and the lock: `SET NX` claims the key atomically, so two concurrent requests with the same key cannot both move money. PostgreSQL is the source of truth — a PENDING row is inserted before the transfer, and the unique constraint on `idempotency_key` catches duplicates even if Redis was cleared. Keys are scoped per user so one user can never read another user's transfer through a reused key.
+
+**Why pessimistic locking for balances?**
+Transfers read a balance, check it, and write it back. Without a lock, two concurrent transfers can both pass the check and overspend. Rows are locked with `SELECT ... FOR UPDATE`, always in account-number order, so opposite transfers (A→B and B→A) cannot deadlock. This is covered by a Testcontainers test that fires 20 concurrent transfers at one account.
 
 **Why separate Redis instances per service?**
 Each service owns its own cache/rate-limit data. Shared Redis would create implicit coupling between services and make independent scaling harder.
 
 **Why Client Credentials for Feign?**
 Service-to-service calls (Transaction → Account) should not carry the user's JWT — a service should prove its own identity. Client Credentials gives Transaction Service its own token scoped to the `service` role, which Account Service validates independently.
+
+---
+
+## Testing
+
+```bash
+cd account-service && mvn test -Dtest='AccountServiceTest,AccountServiceIntegrationTest'
+cd transaction-service && mvn test -Dtest='TransferServiceTest'
+```
+
+- `AccountServiceTest`, `TransferServiceTest` — unit tests (Mockito): transfers, freeze/unfreeze, idempotency, failure handling
+- `AccountServiceIntegrationTest` — real PostgreSQL via Testcontainers (needs Docker): concurrent transfers never overspend, opposite transfers don't deadlock
+
+---
+
+## Known Limitations
+
+- **Cross-service consistency** — the debit/credit (Account Service) and the transfer record (Transaction Service) live in different databases. If Transaction Service crashes after the Feign call, the transfer stays PENDING and needs reconciliation. A production system would use a Saga or a transactional outbox.
+- **Audit log and Kafka event are best-effort** — written after the transfer commits; failures are logged, not retried. A transactional outbox would guarantee delivery.
+- **Exchange rates are fetched inside the balance transaction**, so locks are held during an external HTTP call.
+- **Keycloak realm is configured manually** (see above) rather than imported from a realm export.
 
 ---
 

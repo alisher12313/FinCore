@@ -13,18 +13,17 @@ import com.pm.accountservice.exception.AccountAlreadyActiveException;
 import com.pm.accountservice.exception.AccountFrozenException;
 import com.pm.accountservice.exception.AccountNotFoundWithUserIdException;
 import com.pm.accountservice.exception.InsufficientBalanceException;
+import com.pm.accountservice.exception.SelfTransferException;
 import com.pm.accountservice.mapper.AccountMapper;
 import com.pm.accountservice.repository.AccountRepository;
 import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.kafka.clients.producer.ProducerRecord;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
-import org.springframework.kafka.core.KafkaTemplate;
-import org.springframework.kafka.support.SendResult;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,11 +31,11 @@ import org.springframework.validation.annotation.Validated;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.nio.charset.StandardCharsets;
+import java.security.SecureRandom;
 import java.time.Instant;
+import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 
 @Service
 @RequiredArgsConstructor
@@ -51,6 +50,10 @@ public class AccountService {
     private final CurrencyClientApi currencyClientApi;
     private final KafkaEventPublisher kafkaEventPublisher;
     private final KafkaTopics kafkaTopics;
+    private final CacheManager cacheManager;
+
+    private static final SecureRandom RANDOM = new SecureRandom();
+    private static final String ACCOUNTS_CACHE = "accounts";
 
     @Value("${currency.api}")
     private String apiKey;
@@ -104,7 +107,7 @@ public class AccountService {
     public Account topUpBalance(TopUpRequestDto topUpRequestDto, Jwt jwt) {
         UUID dummyId = UUID.fromString(jwt.getSubject());
 
-        Account account = accountRepository.findByUserId(dummyId).orElseThrow(() -> new AccountNotFoundWithUserIdException(dummyId.toString()));
+        Account account = accountRepository.findByUserIdForUpdate(dummyId).orElseThrow(() -> new AccountNotFoundWithUserIdException(dummyId.toString()));
         String currencyType = topUpRequestDto.getCurrencyType().name();
         BigDecimal amount = topUpRequestDto.getAmount();
 
@@ -120,7 +123,6 @@ public class AccountService {
         return accountRepository.save(account);
     }
 
-    @CacheEvict(value = "accounts", key = "#jwt.subject")
     public Account freezeAccount(UUID accountId, Jwt jwt) {
         Account account = accountRepository.findById(accountId)
                 .orElseThrow(() -> new AccountNotFoundWithUserIdException(accountId.toString()));
@@ -131,6 +133,7 @@ public class AccountService {
 
         account.setStatus(AccountStatus.FROZEN);
         Account savedAccount = accountRepository.save(account);
+        evictProfileCache(account.getUserId());
 
         AccountFreezeEvent event = AccountFreezeEvent.builder()
                 .accountId(accountId)
@@ -144,17 +147,17 @@ public class AccountService {
         return savedAccount;
     }
 
-    @CacheEvict(value = "accounts", key = "#jwt.subject")
     public Account unfreezeAccount(UUID accountId, Jwt jwt) {
         Account account = accountRepository.findById(accountId)
                 .orElseThrow(() -> new AccountNotFoundWithUserIdException(accountId.toString()));
 
         if (account.getStatus() == AccountStatus.ACTIVE) {
-            throw new AccountFrozenException(accountId.toString());
+            throw new AccountAlreadyActiveException(accountId.toString());
         }
 
-        account.setStatus(AccountStatus.FROZEN);
+        account.setStatus(AccountStatus.ACTIVE);
         Account savedAccount = accountRepository.save(account);
+        evictProfileCache(account.getUserId());
 
         AccountUnfreezeEvent event = AccountUnfreezeEvent.builder()
                 .accountId(accountId)
@@ -173,7 +176,13 @@ public class AccountService {
     }
 
     private String generateAccountNumber() {
-        return "KZ" + System.currentTimeMillis();
+        // "KZ" + 18 random digits = 20 chars (the column length). The unique constraint
+        // on account_number is the final guard against the negligible collision chance.
+        StringBuilder sb = new StringBuilder("KZ");
+        for (int i = 0; i < 18; i++) {
+            sb.append(RANDOM.nextInt(10));
+        }
+        return sb.toString();
     }
 
     public AccountResponseDto toDto(Account account) {
@@ -185,8 +194,20 @@ public class AccountService {
         String to = transferRequestDto.toAccountNumber();
         BigDecimal amount = transferRequestDto.amount();
 
-        Account sender = accountRepository.findByAccountNumber(from).orElseThrow(() -> new AccountNotFoundWithUserIdException(from));
-        Account receiver = accountRepository.findByAccountNumber(to).orElseThrow(() -> new AccountNotFoundWithUserIdException(from));
+        if (from.equals(to)) {
+            throw new SelfTransferException(from);
+        }
+
+        // Lock both rows in a fixed order (by account number). If A->B and B->A run
+        // at the same time, both lock the lower number first, so they cannot deadlock.
+        List<String> lockOrder = List.of(from, to).stream().sorted(Comparator.naturalOrder()).toList();
+        Account first = accountRepository.findByAccountNumberForUpdate(lockOrder.get(0))
+                .orElseThrow(() -> new AccountNotFoundWithUserIdException(lockOrder.get(0)));
+        Account second = accountRepository.findByAccountNumberForUpdate(lockOrder.get(1))
+                .orElseThrow(() -> new AccountNotFoundWithUserIdException(lockOrder.get(1)));
+
+        Account sender = first.getAccountNumber().equals(from) ? first : second;
+        Account receiver = sender == first ? second : first;
 
         if(sender.getStatus() == AccountStatus.FROZEN) {
             throw new AccountFrozenException(from);
@@ -208,6 +229,18 @@ public class AccountService {
         receiver.setBalance(receiver.getBalance().add(amountToCredit).setScale(2, RoundingMode.HALF_UP));
 
         accountRepository.saveAll(List.of(sender, receiver));
+        evictProfileCache(sender.getUserId());
+        evictProfileCache(receiver.getUserId());
+    }
+
+    private void evictProfileCache(UUID userId) {
+        if (cacheManager == null) {
+            return;
+        }
+        Cache cache = cacheManager.getCache(ACCOUNTS_CACHE);
+        if (cache != null) {
+            cache.evict(userId.toString());
+        }
     }
 
     private BigDecimal convertAmount(BigDecimal amount, String fromCurrency, String toCurrency){
@@ -225,6 +258,7 @@ public class AccountService {
     }
 
     public AccountResponseDto getByUserId(UUID userId) {
-        return accountMapper.toDto(accountRepository.findByUserId(userId).orElseThrow());
+        return accountMapper.toDto(accountRepository.findByUserId(userId)
+                .orElseThrow(() -> new AccountNotFoundWithUserIdException(userId.toString())));
     }
 }

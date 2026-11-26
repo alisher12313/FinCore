@@ -7,7 +7,7 @@ services:
     environment:
       POSTGRES_DB: account_db
       POSTGRES_USER: account
-      POSTGRES_PASSWORD: password
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
     volumes:
       - postgres-account-data:/var/lib/postgresql/data
     ports:
@@ -22,7 +22,7 @@ services:
     environment:
       POSTGRES_DB: account_test_db
       POSTGRES_USER: account
-      POSTGRES_PASSWORD: password
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
     ports:
       - "5451:5432"
     restart: unless-stopped
@@ -35,7 +35,7 @@ services:
     environment:
       POSTGRES_DB: transaction_db
       POSTGRES_USER: transaction
-      POSTGRES_PASSWORD: password
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
     volumes:
       - postgres-transaction-data:/var/lib/postgresql/data
     ports:
@@ -50,7 +50,7 @@ services:
     environment:
       MONGO_INITDB_DATABASE: transaction_db
       MONGO_INITDB_ROOT_USERNAME: transaction
-      MONGO_INITDB_ROOT_PASSWORD: password
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:-password}
     ports:
       - "27020:27017"
     volumes:
@@ -86,7 +86,7 @@ services:
     environment:
       MONGO_INITDB_DATABASE: notification_db
       MONGO_INITDB_ROOT_USERNAME: notification
-      MONGO_INITDB_ROOT_PASSWORD: password
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:-password}
     ports:
       - "27022:27017"
     volumes:
@@ -123,7 +123,7 @@ services:
     environment:
       POSTGRES_DB: keycloak_db
       POSTGRES_USER: keycloak
-      POSTGRES_PASSWORD: password
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
     ports:
       - "5453:5432"
     volumes:
@@ -142,10 +142,10 @@ services:
       KC_DB_URL_HOST: postgres-keycloak
       KC_DB_URL_DATABASE: keycloak_db
       KC_DB_USERNAME: keycloak
-      KC_DB_PASSWORD: password
+      KC_DB_PASSWORD: ${POSTGRES_PASSWORD:-password}
 
       KEYCLOAK_ADMIN: admin
-      KEYCLOAK_ADMIN_PASSWORD: admin
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
 
     ports:
       - "9090:8080"
@@ -167,7 +167,7 @@ services:
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-account:5432/account_db
       SPRING_DATASOURCE_USERNAME: account
-      SPRING_DATASOURCE_PASSWORD: password
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-password}
       SPRING_DATA_REDIS_HOST: redis-account
       SPRING_DATA_REDIS_PORT: 6379
       SPRING_KAFKA_PRODUCER_BOOTSTRAP_SERVERS: fincore-kafka:9092
@@ -191,7 +191,7 @@ services:
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-transaction:5432/transaction_db
       SPRING_DATASOURCE_USERNAME: transaction
-      SPRING_DATASOURCE_PASSWORD: password
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-password}
       SPRING_DATA_MONGODB_HOST: mongodb-audit-logs
       SPRING_DATA_MONGODB_PORT: 27017
       SPRING_DATA_REDIS_HOST: redis-transaction

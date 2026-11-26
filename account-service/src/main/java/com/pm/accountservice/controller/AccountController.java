@@ -74,7 +74,7 @@ public class AccountController {
         AccountResponseDto accountResponseDto = accountService.toDto(account);
 
         return ResponseEntity.ok(Map.of(
-                "message", "Account fetched successfully",
+                "message", "Balance topped up successfully",
                 "result", accountResponseDto
             )
         );
